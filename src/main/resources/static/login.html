@@ -152,6 +152,8 @@
                         sessionStorage.setItem('employeeId', data.data.id);
                         window.location.href = '/pages/employee-center.html';
                     } else {
+                        localStorage.setItem('adminName', data.data.name);
+                        localStorage.setItem('adminId', data.data.id);
                         window.location.href = '/index.html';
                     }
                 } else {

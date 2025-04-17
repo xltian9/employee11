@@ -45,15 +45,18 @@
                     <li class="nav-item">
                         <a class="nav-link" href="#" onclick="loadContent('leave')">请假管理</a>
                     </li>
-<!-- 					<li class="nav-item">
+					<!-- <li class="nav-item">
 					    <a class="nav-link" href="#" onclick="loadContent('performance')">业绩管理</a>
 					</li> -->
                 </ul>
-				<p class="name">${adminName}</p>
+                <!-- 占位元素，后续用 JavaScript 填充管理员名称 -->
+                <span class="navbar-text name" id="adminName"></span>
                 <button class="btn btn-outline-light" onclick="logout()">退出登录</button>
             </div>
         </div>
     </nav>
+
+   
 
     <!-- 主要内容区域 -->
     <div class="container-fluid content">
@@ -82,6 +85,20 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从 localStorage 读取管理员名称
+            const adminName = localStorage.getItem('adminName');
+            console.log('从 localStorage 获取的管理员名称:', adminName); // 打印获取到的管理员名称
+            if (adminName) {
+                // 将管理员名称显示在页面上
+                document.getElementById('adminName').textContent = adminName;
+            } else {
+                console.log('localStorage 中未找到管理员名称');
+            }
+        });
+    </script>
 
     <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="/js/main.js"></script>
