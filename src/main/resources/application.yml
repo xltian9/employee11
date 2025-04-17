@@ -1,0 +1,57 @@
+# Tomcat配置
+server:
+  tomcat:
+    uri-encoding: UTF-8
+  port: 8080
+
+# Spring配置
+spring:
+  # 应用名称
+  application:
+    name: employee-system
+  
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/employee_dbd?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+
+    
+  # JPA配置
+  jpa:
+    database: mysql
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+
+  # MVC配置
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.limiti.employee: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+
+file:
+  upload:
+    dir: E:\KaiFa\毕业设计\employee11\img/  # 确保应用有该目录的读写权限

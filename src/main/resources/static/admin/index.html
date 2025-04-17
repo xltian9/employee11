@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工管理系统 - 管理后台</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../CSS/styles.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            min-height: 100vh;
+            background-color: #343a40;
+            padding-top: 20px;
+        }
+        .nav-link {
+            color: #fff;
+            padding: 10px 20px;
+        }
+        .nav-link:hover {
+            background-color: #495057;
+            color: #fff;
+        }
+        .nav-link.active {
+            background-color: #0d6efd;
+        }
+        .content {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 左侧导航栏 -->
+            <div class="col-md-2 sidebar">
+                <div class="text-center mb-4">
+                    <h4 class="text-white">管理后台</h4>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" onclick="showContent('employee-manage')">
+                            <i class="bi bi-people"></i> 员工管理
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showContent('department-manage')">
+                            <i class="bi bi-building"></i> 部门管理
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showContent('notice-manage')">
+                            <i class="bi bi-bell"></i> 公告管理
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="logout()">
+                            <i class="bi bi-box-arrow-right"></i> 退出登录
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 右侧内容区 -->
+            <div class="col-md-10 content">
+                <!-- 员工管理 -->
+                <div id="employee-manage" class="content-section">
+                    <h3>员工管理</h3>
+                    <div class="card">
+                        <div class="card-body">
+                            <!-- 员工管理的具体内容 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 部门管理 -->
+                <div id="department-manage" class="content-section" style="display: none;">
+                    <h3>部门管理</h3>
+                    <div class="card">
+                        <div class="card-body">
+                            <!-- 部门管理的具体内容 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 公告管理 -->
+                <div id="notice-manage" class="content-section" style="display: none;">
+                    <h3>公告管理</h3>
+                    <div class="card">
+                        <div class="card-body">
+                            <!-- 公告管理的具体内容 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 切换内容区域显示
+        function showContent(sectionId) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            document.getElementById(sectionId).style.display = 'block';
+            
+            // 更新导航栏活动状态
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // 退出登录
+        async function logout() {
+            try {
+                const response = await fetch('/api/auth/logout', {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    window.location.href = '/login.html';
+                }
+            } catch (error) {
+                alert('退出失败：' + error.message);
+            }
+        }
+
+        // 页面加载完成后检查登录状态
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 暂时移除登录检查
+        });
+    </script>
+</body>
+</html> 

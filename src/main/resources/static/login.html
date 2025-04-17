@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工管理系统 - 登录</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            display: flex;
+            align-items: center;
+            background-color: #f5f5f5;
+        }
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 15px;
+            margin: auto;
+        }
+        .form-signin {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .login-title {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .form-floating {
+            margin-bottom: 15px;
+        }
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+        }
+        .login-type {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="form-signin">
+            <h2 class="login-title">员工管理系统</h2>
+            
+            <!-- 登录类型选择 -->
+            <div class="login-type">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="loginType" id="employeeLogin" value="employee" checked>
+                    <label class="btn btn-outline-primary" for="employeeLogin">员工登录</label>
+
+                    <input type="radio" class="btn-check" name="loginType" id="adminLogin" value="admin">
+                    <label class="btn btn-outline-primary" for="adminLogin">管理员登录</label>
+                </div>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="username" placeholder="用户名" required>
+                    <label for="username" id="usernameLabel">姓名</label>
+                </div>
+                <div class="form-floating">
+                    <input type="password" class="form-control" id="password" placeholder="密码" required>
+                    <label for="password" id="passwordLabel">手机号</label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-login">登录</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 错误提示模态框 -->
+    <div class="modal fade" id="errorModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">提示</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="errorMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 获取元素
+        const loginForm = document.getElementById('loginForm');
+        const loginTypeInputs = document.getElementsByName('loginType');
+        const usernameLabel = document.getElementById('usernameLabel');
+        const passwordLabel = document.getElementById('passwordLabel');
+        const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+        const errorMessage = document.getElementById('errorMessage');
+
+        // 切换登录类型时更改标签文本
+        loginTypeInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                if (this.value === 'employee') {
+                    usernameLabel.textContent = '姓名';
+                    passwordLabel.textContent = '手机号';
+                } else {
+                    usernameLabel.textContent = '管理员账号';
+                    passwordLabel.textContent = '密码';
+                }
+            });
+        });
+
+        // 表单提交处理
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const loginType = document.querySelector('input[name="loginType"]:checked').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // 如果是员工登录，验证手机号格式
+            if (loginType === 'employee' && !/^1[3-9]\d{9}$/.test(password)) {
+                showError('请输入正确的手机号');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        loginType: loginType,
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    // 在登录成功后保存员工ID
+                    if (loginType === 'employee') {
+                        // 保存员工ID到 sessionStorage
+                        sessionStorage.setItem('employeeId', data.data.id);
+                        window.location.href = '/pages/employee-center.html';
+                    } else {
+                        window.location.href = '/index.html';
+                    }
+                } else {
+                    showError(data.msg || '登录失败');
+                }
+            } catch (error) {
+                showError('服务器错误，请稍后重试');
+            }
+        });
+
+        // 显示错误信息
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorModal.show();
+        }
+    </script>
+</body>
+</html> 

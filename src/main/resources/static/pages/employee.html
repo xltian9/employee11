@@ -1,0 +1,149 @@
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <h3>员工管理</h3>
+        </div>
+        <div class="col text-end">
+            <button class="btn btn-primary" onclick="showAddEmployeeModal()">
+                <i class="bi bi-plus"></i> 添加员工
+            </button>
+        </div>
+    </div>
+
+    <!-- 搜索和筛选区域 -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="searchInput" placeholder="搜索员工姓名或工号">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="departmentFilter">
+                        <option value="">选择部门</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter">
+                        <option value="">选择状态</option>
+                        <option value="true">在职</option>
+                        <option value="false">离职</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100" onclick="filterEmployees()">搜索</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 员工列表 -->
+    <div class="card">
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>工号</th>
+                        <th>姓名</th>
+                        <th>部门</th>
+                        <th>职位</th>
+                        <th>手机号</th>
+                        <th>邮箱</th>
+                        <th>入职时间</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="employeeTableBody">
+                    <!-- 员工数据将在这里动态加载 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 添加/编辑员工模态框 -->
+<div class="modal fade" id="employeeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="employeeModalTitle">添加员工</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="employeeForm">
+                    <input type="hidden" id="employeeId">
+                    <div class="mb-3">
+                        <label for="employeeName" class="form-label">姓名</label>
+                        <input type="text" class="form-control" id="employeeName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="employeeDepartment" class="form-label">部门</label>
+                        <select class="form-select" id="employeeDepartment" required>
+                            <option value="">请选择部门</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="employeePosition" class="form-label">职位</label>
+                        <input type="text" class="form-control" id="employeePosition" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="employeePhone" class="form-label">手机号</label>
+                        <input type="tel" class="form-control" id="employeePhone" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="employeeEmail" class="form-label">邮箱</label>
+                        <input type="email" class="form-control" id="employeeEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label for="employeeHireDate" class="form-label">入职日期</label>
+                        <input type="date" class="form-control" id="employeeHireDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="employeeStatus" class="form-label">状态</label>
+                        <select class="form-select" id="employeeStatus" required>
+                            <option value="true">在职</option>
+                            <option value="false">离职</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveEmployee()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 错误提示模态框 -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">错误提示</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 成功提示模态框 -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">提示</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="successMessage"></p>
+            </div>
+        </div>
+    </div>
+</div> 

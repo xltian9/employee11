@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业员工管理系统</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link th:href="@{/static/css/style.css}" rel="stylesheet">
+</head>
+<body>
+    <!-- 导航栏部分保持不变 -->
+    
+    <div class="container mt-4">
+        <div id="content">
+            <!-- 内容将通过JavaScript动态加载 -->
+        </div>
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/static/js/main.js}"></script>
+    <script th:src="@{/static/js/employee.js}"></script>
+    <script th:src="@{/static/js/attendance.js}"></script>
+</body>
+</html> 

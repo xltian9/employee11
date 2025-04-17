@@ -1,0 +1,113 @@
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">业绩管理</h5>
+        <button class="btn btn-primary" onclick="showAddPerformanceModal()">添加评估</button>
+    </div>
+    <div class="card-body">
+        <!-- 筛选条件 -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <select class="form-select" id="departmentFilter" onchange="filterPerformances()">
+                    <option value="">选择部门</option>
+                    <!-- 部门选项将动态加载 -->
+                </select>
+            </div>
+            <div class="col-md-3">
+                <input type="month" class="form-control" id="monthFilter" onchange="filterPerformances()">
+            </div>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="searchName" placeholder="搜索员工姓名...">
+                    <button class="btn btn-secondary" onclick="filterPerformances()">搜索</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 业绩列表 -->
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>员工姓名</th>
+                    <th>部门</th>
+                    <th>月份</th>
+                    <th>工作表现</th>
+                    <th>工作态度</th>
+                    <th>出勤情况</th>
+                    <th>总评分</th>
+                    <th>评估人</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="performanceTableBody">
+                <!-- 动态加载的业绩记录 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 业绩评估模态框 -->
+<div class="modal fade" id="performanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="performanceModalTitle">添加业绩评估</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="performanceForm">
+                    <input type="hidden" id="performanceId">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">员工</label>
+                            <select class="form-select" id="employeeSelect" required>
+                                <option value="">选择员工</option>
+                                <!-- 员工选项将动态加载 -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">评估月份</label>
+                            <input type="month" class="form-control" id="performanceMonth" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">工作表现评分(0-100)</label>
+                            <input type="number" class="form-control" id="workScore" min="0" max="100" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">工作态度评分(0-100)</label>
+                            <input type="number" class="form-control" id="attitudeScore" min="0" max="100" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">出勤评分(0-100)</label>
+                            <input type="number" class="form-control" id="attendanceScore" min="0" max="100" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">评价内容</label>
+                        <textarea class="form-control" id="performanceComment" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="savePerformance()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 查看详情模态框 -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">业绩评估详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="performanceDetail">
+                <!-- 动态加载的评估详情 -->
+            </div>
+        </div>
+    </div>
+</div> 

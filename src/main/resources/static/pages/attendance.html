@@ -1,0 +1,47 @@
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">考勤管理</h5>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h3 id="currentTime">00:00:00</h3>
+                        <div class="mt-3">
+                            <button class="btn btn-primary me-2" onclick="checkIn()">签到</button>
+                            <button class="btn btn-success" onclick="checkOut()">签退</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div id="todayAttendance">
+                    <!-- 今日考勤信息将通过JavaScript动态加载 -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">考勤记录</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>签到时间</th>
+                            <th>签退时间</th>
+                            <th>状态</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTableBody">
+                        <!-- 考勤记录将通过JavaScript动态加载 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div> 
