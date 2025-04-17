@@ -1,7 +1,14 @@
+// 初始化标志位，用于记录是否需要刷新个人信息页面
+let shouldRefreshPersonalInfo = false;
+// 记录是否是首次加载
+let isFirstLoad = true;
+
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', function() {
     // 默认显示个人信息页面
     showContent('personal-info');
+    // 首次加载完成，将标志位设为 false
+    isFirstLoad = false;
 });
 
 // 加载员工信息
@@ -9,7 +16,7 @@ function loadEmployeeInfo() {
     // 从 session 中获取员工 ID
     const employeeId = sessionStorage.getItem('employeeId');
     if (!employeeId) {
-        console.error('No employee ID found');
+        console.error('没有发现员工ID');
         window.location.href = '/login.html';
         return;
     }
@@ -20,7 +27,7 @@ function loadEmployeeInfo() {
             if (data.code === 200) {
                 displayEmployeeInfo(data.data);
             } else {
-                console.error('Failed to load employee info:', data);
+                console.error('加载员工信息失败:', data);
                 // 如果未登录，跳转到登录页面
                 if (data.msg === '未登录') {
                     window.location.href = '/login.html';
@@ -28,11 +35,13 @@ function loadEmployeeInfo() {
                 }
                 displayEmployeeInfo({});
             }
+			
         })
         .catch(error => {
-            console.error('Error loading employee info:', error);
+            console.error('加载员工信息时出错:', error);
             displayEmployeeInfo({});
         });
+		// window.location.href = window.location.href;
 }
 
 // 显示员工信息
@@ -49,12 +58,16 @@ function displayEmployeeInfo(employee) {
             <p><strong>邮箱：</strong>${employee.email || '-'}</p>
         </div>
         <div class="col-md-4">
-            <p><strong>入职11时间：</strong>${formatDate(employee.entryDate) || '-'}</p>
+            <p><strong>入职时间：</strong>${formatDate(employee.entryDate) || '-'}</p>
             <p><strong>状态：</strong>${employee.status ? '在职' : '离职'}</p>
-			<p><strong><img id="employeePhoto" src="" alt="照片"></p>
-			<p><strong><input type="file" id="photoUpload" accept="image/*"></p>
-			<button onclick="uploadPhoto()">上传照片</button>
         </div>
+        <div class="avatar-container">
+            <p><strong><img class="avatar" id="employeePhoto" src="" alt="头像"></strong></p>
+        </div>
+        <div>
+            <p><strong><input type="file" id="photoUpload" accept="image/*"></p>
+			<button id="refreshBtn" onclick="uploadPhoto()">上传头像</button>
+		</div>
     `;
     document.getElementById('employeeInfo').innerHTML = infoHtml;
 }
@@ -85,12 +98,23 @@ function showContent(sectionId) {
         // 加载相应的数据
         switch(sectionId) {
             case 'personal-info':
+                if (shouldRefreshPersonalInfo && !isFirstLoad) {
+                    // 强制刷新页面
+                    window.location.reload(true); 
+                    return; // 刷新后直接返回，避免后续代码执行
+                }
                 loadEmployeeInfo();
+                // 重置标志位
+                shouldRefreshPersonalInfo = false; 
                 break;
             case 'leave-manage':
+                // 切换到其他页面时，设置标志位为 true，下次进入个人信息页面会刷新
+                shouldRefreshPersonalInfo = true; 
                 loadMyLeaves();
                 break;
             case 'notice-view':
+                // 切换到其他页面时，设置标志位为 true，下次进入个人信息页面会刷新
+                shouldRefreshPersonalInfo = true; 
                 loadNotices();
                 break;
         }
@@ -282,11 +306,11 @@ function showApplyLeaveModal() {
     const modal = new bootstrap.Modal(document.getElementById('leaveModal'));
     modal.show();
 }
-
+const employeeId = sessionStorage.getItem('employeeId');
 // 提交请假申请
 function submitLeave() {
     // 获取当前登录的员工ID
-    const employeeId = sessionStorage.getItem('employeeId');
+    
     if (!employeeId) {
         showError('未找到员工信息，请重新登录');
         window.location.href = '/login.html';
@@ -374,20 +398,26 @@ function uploadPhoto() {
     const formData = new FormData();
     formData.append('photo', file);
 
-    fetch(`/api/employees/1/upload-photo`, {
+    fetch(`/api/employees/${employeeId}/upload-photo`, {
         method: 'POST',
         body: formData
     }).then(response => response.text())
       .then(data => console.log(data));
+	   window.location.reload(true);
 }
 
 // 从后端加载照片
-fetch(`/api/employees/1/photo`)
+fetch(`/api/employees/${employeeId}/photo`)
     .then(response => response.blob())
     .then(blob => {
         const url = URL.createObjectURL(blob);
         document.getElementById('employeePhoto').src = url;
     });
+	  
+// document.getElementById('refreshBtn').addEventListener('click', function() {
+//   // 强制从服务器加载
+//   window.location.reload(true);
+// });
 
 // 确保所有需要的函数都在全局作用域可用
 window.showContent = showContent;

@@ -1,6 +1,8 @@
 /**
  * 加载部门列表
  */
+
+
 function loadDepartments() {
     console.log('Loading departments...');
     fetch('/api/departments')
