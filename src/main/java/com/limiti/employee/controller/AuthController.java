@@ -67,7 +67,6 @@ public class AuthController {
         return ResponseEntity.ok().body(Map.of("token", token));
     }*/
     }
-
     /**
      * 退出登录
      */

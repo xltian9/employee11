@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
 import com.limiti.employee.common.Result;
 
@@ -49,28 +50,26 @@ public class AuthService {
                 return Result.error("密码不能为空");
             }
 
+            // 去除用户名前后空格
+            String trimmedUsername = username.trim();
             // 查找管理员
-            Admin admin = adminRepository.findByUsername(username.trim())
+            Admin admin = adminRepository.findByUsername(trimmedUsername)
                     .orElseThrow(() -> new RuntimeException("用户名或密码错误"));
-
             // 验证状态
             if (!admin.getStatus()) {
                 return Result.error("账号已被禁用");
             }
 
-            // 特殊判断：如果是admin用户且密码是123456，直接通过
-            if ("admin".equals(username) && "123456".equals(password)) {
-                return Result.success(admin);
-            }
-
-            // 其他用户正常验证密码
+            // 对输入密码进行加密
             String encryptedPassword = DigestUtils.md5DigestAsHex(
                 password.getBytes(StandardCharsets.UTF_8));
+
+            // 验证加密后的密码
             if (!encryptedPassword.equals(admin.getPassword())) {
                 return Result.error("用户名或密码错误");
             }
             
-            log.info("登录成功, username: {}", username);
+            log.info("登录成功, username: {}", trimmedUsername);
             return Result.success(admin);
         } catch (Exception e) {
             log.error("登录失败", e);

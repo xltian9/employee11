@@ -18,6 +18,6 @@ import springfox.documentation.oas.annotations.EnableOpenApi;
 public class EmployeeApplication {
     public static void main(String[] args) {
         SpringApplication.run(EmployeeApplication.class, args);
-        log.info("启动成功");
+        log.info("系统启动成功");
     }
 }
