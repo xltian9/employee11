@@ -67,4 +67,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
      * 不查询被删除的用户
      */
     List<Employee> findByIsDel(Boolean isDel);
+
+    Optional<Employee> findByNameAndPhone(String name, String phone);
 }

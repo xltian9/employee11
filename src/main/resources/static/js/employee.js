@@ -2,17 +2,22 @@
  * 筛选员工列表
  */
 function filterEmployees() {
+    // 获取搜索输入框中的关键词，并去除首尾空格
     const keyword = document.getElementById('searchInput').value.trim();
+    // 获取部门筛选下拉框中选中的部门
     const department = document.getElementById('departmentFilter').value;
+    // 获取员工状态筛选下拉框中选中的状态
     const status = document.getElementById('statusFilter').value;
 
     let url = '/api/employees/search?';
+    // 创建 URLSearchParams 对象，用于构建请求参数
     const params = new URLSearchParams();
     
     if (keyword) params.append('keyword', keyword);
     if (department) params.append('department', department);
     if (status) params.append('status', status);
 
+    // 发送 GET 请求，将基础 URL 和请求参数拼接后作为请求地址
     fetch(url + params.toString())
         .then(response => response.json())
         .then(data => {
@@ -237,6 +242,13 @@ function saveEmployee() {
         return;
     }
 
+    // employees.forEach(function(emp) {
+    //     if(data.name==emp.name && data.phone==emp.phone) {
+    //         showError('重复的姓名和号码');
+    //         return;
+    //     }
+    // });
+    
     // 验证手机号格式
     if (!/^1[3-9]\d{9}$/.test(data.phone)) {
         showError('请输入正确的手机号');

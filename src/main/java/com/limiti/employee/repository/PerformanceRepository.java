@@ -20,22 +20,24 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
      * @param employeeId 员工ID
      * @return 业绩记录列表
      */
-    List<Performance> findByEmployee_IdOrderByMonthDesc(Long employeeId);
+    List<Performance> findByEmployee_IdOrderByYearDescQuarterDesc(Long employeeId);
     
     /**
-     * 查找员工指定月份的业绩记录
+     * 查找员工指定年份和季度的业绩记录
      * @param employeeId 员工ID
-     * @param month 月份（YYYY-MM）
+     * @param year 年份
+     * @param quarter 季度
      * @return 业绩记录
      */
-    Optional<Performance> findByEmployee_IdAndMonth(Long employeeId, String month);
+    Optional<Performance> findByEmployee_IdAndYearAndQuarter(Long employeeId, Integer year, Integer quarter);
     
     /**
-     * 查找指定月份的所有业绩记录
-     * @param month 月份（YYYY-MM）
+     * 查找指定年份和季度的所有业绩记录
+     * @param year 年份
+     * @param quarter 季度
      * @return 业绩记录列表
      */
-    List<Performance> findByMonthOrderByTotalScoreDesc(String month);
+    List<Performance> findByYearAndQuarterOrderByScoreDesc(Integer year, Integer quarter);
     
     /**
      * 查找指定评估人的业绩记录
@@ -47,9 +49,10 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
     /**
      * 查找指定部门的业绩记录
      * @param department 部门名称
-     * @param month 月份（YYYY-MM）
+     * @param year 年份
+     * @param quarter 季度
      * @return 业绩记录列表
      */
-    List<Performance> findByEmployee_DepartmentAndMonthOrderByTotalScoreDesc(
-        String department, String month);
+    List<Performance> findByEmployee_DepartmentAndYearAndQuarterOrderByScoreDesc(
+        String department, Integer year, Integer quarter);
 } 

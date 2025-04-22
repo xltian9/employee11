@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>员工管理系统</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .content {
@@ -45,9 +46,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="#" onclick="loadContent('leave')">请假管理</a>
                     </li>
-                    <!-- <li class="nav-item">
+                    <li class="nav-item">
                         <a class="nav-link" href="#" onclick="loadContent('performance')">业绩管理</a>
-                    </li> -->
+                    </li>
                 </ul>
                 <!-- 占位元素，后续用 JavaScript 填充管理员名称 -->
                 <span class="navbar-text name" id="adminName" onclick="showAdminModal()"></span>
@@ -93,8 +94,18 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <button type="button" class="btn btn-primary w-100 mb-3" onclick="editAdmin()">修改管理员信息</button>
-                    <button type="button" class="btn btn-success w-100" onclick="addAdmin()">添加管理员</button>
+                    <form id="adminForm">
+                        <input type="hidden" id="adminId" name="adminId">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">用户名</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">密码</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <button type="button" class="btn btn-primary w-100" onclick="submitAdminForm()">确定</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -104,96 +115,86 @@
         document.addEventListener('DOMContentLoaded', function() {
             // 从 localStorage 读取管理员名称
             const adminName = localStorage.getItem('adminName');
-            // 判断 adminName 是否为空
+            // const adminId = localStorage.getItem('adminId');
             if (!adminName) {
                 console.log('localStorage 中未找到管理员名称，跳转至登录页面');
-                window.location.href = '/login.html'; // 跳转至登录页面
+                window.location.href = '/login.html'; 
                 return;
             }
-            console.log('从 localStorage 获取的管理员名称:', adminName); // 打印获取到的管理员名称
-            if (adminName) {
-                // 将管理员名称显示在页面上
-                document.getElementById('adminName').textContent = adminName;
-            } else {
-                console.log('localStorage 中未找到管理员名称');
-            }
+            console.log('从 localStorage 获取的管理员名称:', adminName); 
+            // comsole.log('从 localStorage 获取的管理员id:', adminId);
+            document.getElementById('adminName').textContent = adminName;
         });
 
         // 显示管理员模态框
         function showAdminModal() {
             const modal = new bootstrap.Modal(document.getElementById('adminModal'));
+            // 重置表单
+            document.getElementById('adminForm').reset();
+            document.getElementById('adminId').value = '';
             modal.show();
         }
 
-        // 修改管理员信息
-        function editAdmin() {
-            // 显示修改表单
-            const adminId = prompt('请输入要修改的管理员 ID');
-            if (adminId) {
-                const newUsername = prompt('请输入新的用户名');
-                const newPassword = prompt('请输入新的密码');
-                if (newUsername && newPassword) {
-                    const adminData = {
-                        id: adminId,
-                        username: newUsername,
-                        password: newPassword
-                    };
-                    fetch('/api/admin/update', {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(adminData)
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.code === 200) {
-                            alert('管理员信息修改成功');
-                        } else {
-                            alert('管理员信息修改失败: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('请求出错:', error);
-                        alert('请求出错，请稍后重试');
-                    });
-                }
-            }
+        // 准备修改管理员信息
+        function prepareEditAdmin() {
+            // 调用获取管理员信息接口
+            fetch('/api/admin/info')
+               .then(response => response.json())
+               .then(data => {
+                    if (data.code === 200) {
+                        const admin = data.data;
+                        // 假设返回数据包含 id、username 字段
+                        document.getElementById('adminId').value = admin.id;
+                        document.getElementById('username').value = admin.username;
+                        document.getElementById('password').value = ''; // 通常不显示原密码，让用户重新输入
+                    }
+                    showAdminModal();
+                })
+               .catch(error => {
+                    console.error('获取管理员信息出错:', error);
+                    alert('获取管理员信息出错，请稍后重试');
+                });
         }
 
-        // 添加管理员
-        function addAdmin() {
-            const newUsername = prompt('请输入新管理员的用户名');
-            const newPassword = prompt('请输入新管理员的密码');
-            if (newUsername && newPassword) {
-                const adminData = {
-                    username: newUsername,
-                    password: newPassword
-                };
-                fetch('/api/admin/add', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(adminData)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.code === 200) {
-                        alert('管理员添加成功');
-                    } else {
-                        alert('管理员添加失败: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('请求出错:', error);
-                    alert('请求出错，请稍后重试');
-                });
-            }
+        // 提交管理员表单
+        function submitAdminForm() {
+            const adminId = document.getElementById('adminId').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const adminData = {
+                id: adminId,
+                username: username,
+                password: password
+            };
+
+            const url = adminId ? '/api/admin/update' : '/api/admin/add';
+            const method = adminId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(adminData)
+            })
+           .then(response => response.json())
+           .then(data => {
+                if (data.code === 200) {
+                    alert(adminId ? '管理员信息修改成功' : '管理员添加成功');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('adminModal'));
+                    modal.hide();
+                } else {
+                    alert(adminId ? '管理员信息修改失败: ' + data.message : '管理员添加失败: ' + data.message);
+                }
+            })
+           .catch(error => {
+                console.error('请求出错:', error);
+                alert('请求出错，请稍后重试');
+            });
         }
 
         function logout() {
-            // 退出登录逻辑
             localStorage.removeItem('adminName');
             window.location.href = '/login.html'; 
         }
@@ -205,5 +206,6 @@
     <script src="/js/employee.js"></script>
     <script src="/js/notice.js"></script>
     <script src="/js/leave.js"></script>
+    <script src="/js/performance.js"></script>
 </body>
 </html>

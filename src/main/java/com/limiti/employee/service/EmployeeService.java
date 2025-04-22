@@ -175,4 +175,10 @@ public class EmployeeService {
         employee.setPhotoPath(photoPath);
         employeeRepository.save(employee);
     }
+
+    public Employee getEmployeeById(Long employeeId) {
+        // 调用 EmployeeRepository 根据 employeeId 查询员工信息
+        return employeeRepository.findById(employeeId).orElse(null);
+    }
+
 }

@@ -11,45 +11,44 @@ import java.util.Date;
  */
 @Data
 @Entity
-@Table(name = "performances")
+@Table(name = "performances", uniqueConstraints = @UniqueConstraint(columnNames = {"employee_id", "year", "quarter"}))
 public class Performance {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", columnDefinition = "BIGINT COMMENT '绩效ID'")
     private Long id;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "employee_id", nullable = false)
+    @JoinColumn(name = "employee_id", nullable = false, columnDefinition = "BIGINT COMMENT '员工ID'")
     private Employee employee;
 
-    @Column(nullable = false, length = 7)
-    private String month;
+    @Column(name = "year", nullable = false, columnDefinition = "INT COMMENT '年份'")
+    private Integer year;
 
-    @Column(name = "work_score", nullable = false)
-    private Integer workScore;
+    @Column(name = "quarter", nullable = false, columnDefinition = "TINYINT COMMENT '季度：1-4'")
+    private Integer quarter;
 
-    @Column(name = "attitude_score", nullable = false)
-    private Integer attitudeScore;
+    @Column(name = "score", nullable = false, precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1) COMMENT '评分'")
+    private Double score;
 
-    @Column(name = "attendance_score", nullable = false)
-    private Integer attendanceScore;
-
-    @Column(name = "total_score", nullable = false)
-    private Integer totalScore;
-
-    @Column(columnDefinition = "TEXT")
-    private String comment;
+    @Lob
+    @Column(name = "evaluation", nullable = false, columnDefinition = "TEXT COMMENT '评价'")
+    private String evaluation;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "evaluator_id", nullable = false)
+    @JoinColumn(name = "evaluator_id", nullable = false, columnDefinition = "BIGINT COMMENT '评价人ID'")
     private Admin evaluator;
 
+    @Column(name = "status", nullable = false, columnDefinition = "TINYINT DEFAULT 0 COMMENT '状态：0-待确认，1-已确认'")
+    private Integer status = 0;
+
     @Temporal(TemporalType.TIMESTAMP)
-    @Column(name = "create_time", nullable = false, updatable = false)
+    @Column(name = "create_time", nullable = false, updatable = false, columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'")
     private Date createTime;
 
     @Temporal(TemporalType.TIMESTAMP)
-    @Column(name = "update_time", nullable = false)
+    @Column(name = "update_time", nullable = false, columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'")
     private Date updateTime;
 
     @PrePersist
@@ -61,14 +60,18 @@ public class Performance {
         if (updateTime == null) {
             updateTime = now;
         }
-        // 计算总分
-        totalScore = (workScore + attitudeScore + attendanceScore) / 3;
     }
 
     @PreUpdate
     protected void onUpdate() {
         updateTime = new Date();
-        // 更新总分
-        totalScore = (workScore + attitudeScore + attendanceScore) / 3;
+    }
+
+    public Employee getEmployee() {
+        return employee;
+    }
+
+    public void setEmployee(Employee employee) {
+        this.employee = employee;
     }
 } 

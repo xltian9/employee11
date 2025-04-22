@@ -7,7 +7,8 @@ function loadContent(page) {
     fetch(`/pages/${page}.html`)
         .then(response => {
             if (!response.ok) {
-                throw new Error('页面加载失败');
+                // 打印具体错误信息
+                throw new Error(`页面 ${page}.html 加载失败，状态码: ${response.status}`);
             }
             return response.text();
         })
@@ -27,6 +28,12 @@ function loadContent(page) {
                     break;
                 case 'leave':
                     loadLeaves();
+                    break;
+                case 'attendance':
+                    loadAttendance();
+                    break;
+                case 'performance':
+                    loadPerformances();
                     break;
             }
 
