@@ -232,6 +232,7 @@ function loadPerformances() {
                     const row = `
                         <tr>
                             <td>${performance.employee.id}</td>
+                            <td>${performance.employee.name}</td>
                             <td>${performance.year}</td>
                             <td>${performance.quarter}</td>
                             <td>${performance.score}</td>
