@@ -51,6 +51,12 @@ public class Performance {
     @Column(name = "update_time", nullable = false, columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'")
     private Date updateTime;
 
+    @Column(name = "month", nullable = false)
+    private Integer month;
+
+    @Column(name = "work_score", nullable = false)
+    private Integer workScore;
+
     @PrePersist
     protected void onCreate() {
         Date now = new Date();

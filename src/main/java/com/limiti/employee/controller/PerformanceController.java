@@ -2,6 +2,7 @@ package com.limiti.employee.controller;
 
 import com.limiti.employee.common.Result;
 import com.limiti.employee.dto.PerformanceDTO;
+//import com.limiti.employee.dto.PerformanceInfoDTO;
 import com.limiti.employee.entity.Admin;
 import com.limiti.employee.entity.Employee;
 import com.limiti.employee.entity.Performance;
@@ -19,6 +20,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 业绩管理控制器
@@ -104,11 +106,13 @@ public class PerformanceController {
     public Result<List<Performance>> getAllPerformances() {
         try {
             List<Performance> performances = performanceService.getAllPerformances();
+            System.out.println("performanceService.getAllPerformances()");
             return Result.success(performances);
         } catch (Exception e) {
             log.error("获取所有业绩记录失败", e);
             return Result.error("获取所有业绩记录失败：" + e.getMessage());
         }
+
     }
 
     @GetMapping("/{id}")
@@ -141,4 +145,11 @@ public class PerformanceController {
         // 实现根据员工 ID 获取员工信息的逻辑
         return employeeRepository.findById(employeeId).orElse(null);
     }
+
+//    @GetMapping("/list")
+//    @ApiOperation("获取所有业绩记录新")
+//    public Result<List<PerformanceInfoDTO>> list(@RequestParam Map<String,Object> params) {
+//        List<PerformanceInfoDTO> list = performanceService.list(params);
+//        return Result.success(list);
+//    }
 } 

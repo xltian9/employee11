@@ -234,8 +234,9 @@ function loadPerformances() {
                             <td>${performance.employee.id}</td>
                             <td>${performance.employee.name}</td>
                             <td>${performance.year}</td>
+                            <td>${performance.month}</td>
                             <td>${performance.quarter}</td>
-                            <td>${performance.score}</td>
+                            <td>${performance.workScore}</td>
                             <td>${performance.evaluation}</td>
                             <td>${performance.status === 0 ? '待确认' : '已确认'}</td>
                             <td>
@@ -265,6 +266,7 @@ function showCreateModal() {
     $('#score').val('');
     $('#evaluation').val('');
     $('#status').val('0');
+    $('#month').val('');
     $('#performanceModal').show();
 }
 

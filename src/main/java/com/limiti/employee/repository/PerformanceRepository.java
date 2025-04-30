@@ -1,10 +1,15 @@
 package com.limiti.employee.repository;
 
+//import com.limiti.employee.dto.PerformanceInfoDTO;
 import com.limiti.employee.entity.Performance;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -13,7 +18,7 @@ import java.util.Optional;
  * @date 2024/11/15
  */
 @Repository
-public interface PerformanceRepository extends JpaRepository<Performance, Long> {
+public interface PerformanceRepository extends JpaRepository<Performance, Long> , JpaSpecificationExecutor<Performance>{
     
     /**
      * 查找员工的所有业绩记录
@@ -55,4 +60,15 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
      */
     List<Performance> findByEmployee_DepartmentAndYearAndQuarterOrderByScoreDesc(
         String department, Integer year, Integer quarter);
-} 
+
+//    List<PerformanceInfoDTO> list(@Param("params") Map<String, Object> params);
+//
+    // 使用 @Query 注解自定义查询，这里需要根据实际需求编写 JPQL 语句
+//    @Query("SELECT new com.limiti.employee.dto.PerformanceInfoDTO(p.id, p.name, p.score) " +
+//    "FROM Performance p " +
+//    "WHERE (:params IS NULL OR " +
+//    "(:params['employeeId'] IS NULL OR p.employee.id = :#{#params['employeeId']}) AND " +
+//    "(:params['year'] IS NULL OR p.year = :#{#params['year']}) AND " +
+//    "(:params['quarter'] IS NULL OR p.quarter = :#{#params['quarter']}))")
+//List<PerformanceInfoDTO> list(Map<String, Object> params);
+}
