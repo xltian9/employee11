@@ -58,6 +58,9 @@ public class Leave {
     @Column(name = "update_time", nullable = false)
     private Date updateTime;
 
+    @Column(name = "leaves_day")
+    private Integer leavesDay;  //请假天数
+
     @PrePersist
     protected void onCreate() {
         Date now = new Date();

@@ -66,7 +66,7 @@ function loadEmployees() {
     }
 
     // 显示加载状态
-    tableBody.innerHTML = '<tr><td colspan="9" class="text-center">加载中...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="10" class="text-center">加载中...</td></tr>';
 
     // 加载部门列表
     loadDepartmentOptions();
@@ -90,7 +90,7 @@ function loadEmployees() {
             console.error('Error loading employees:', error);
             showError('加载员工列表失败：' + error.message);
             // 显示错误状态
-            tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">加载失败</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">加载失败</td></tr>';
         });
 }
 
@@ -116,6 +116,7 @@ function displayEmployees(employees) {
                     <td>${emp.position}</td>
                     <td>${emp.phone || '-'}</td>
                     <td>${emp.email || '-'}</td>
+                    <td>${emp.wage}</td>
                     <td>${formatDate(emp.entryDate)}</td>
                     <td>
                         <span class="badge ${emp.status ? 'bg-success' : 'bg-secondary'}">
@@ -130,7 +131,7 @@ function displayEmployees(employees) {
             `;
         });
     }
-    tableBody.innerHTML = html || '<tr><td colspan="9" class="text-center">暂无员工数据</td></tr>';
+    tableBody.innerHTML = html || '<tr><td colspan="10" class="text-center">暂无员工数据</td></tr>';
 }
 
 /**
@@ -192,6 +193,7 @@ function editEmployee(id) {
         .then(result => {
             if (result.code === 200) {
                 const emp = result.data;
+                console.log('员工信息：',emp)
                 
                 // 填充表单
                 document.getElementById('employeeId').value = emp.id;
@@ -200,6 +202,7 @@ function editEmployee(id) {
                 document.getElementById('employeePosition').value = emp.position;
                 document.getElementById('employeePhone').value = emp.phone || '';
                 document.getElementById('employeeEmail').value = emp.email || '';
+                document.getElementById('employeeWage').value = emp.wage || '';
                 document.getElementById('employeeStatus').value = emp.status.toString();
                 // 处理日期格式 yyyy-MM-dd
                 if (emp.entryDate) {
@@ -214,11 +217,11 @@ function editEmployee(id) {
             } else {
                 showError(result.msg || '获取员工信息失败');
             }
-        })
-        .catch(error => {
-            console.error('Edit error:', error);
-            showError('获取员工信息失败：' + error.message);
         });
+        // .catch(error => {
+        //     console.error('Edit error:', error);
+        //     showError('获取员工信息失败：' + error.message);
+        // });
 }
 
 /**
@@ -232,6 +235,7 @@ function saveEmployee() {
         position: document.getElementById('employeePosition').value.trim(),
         phone: document.getElementById('employeePhone').value.trim(),
         email: document.getElementById('employeeEmail').value.trim(),
+        wage:document.getElementById('employeeWage').value,
         entryDate: document.getElementById('employeeHireDate').value,
         status: document.getElementById('employeeStatus').value === 'true',
     };

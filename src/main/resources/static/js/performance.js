@@ -220,7 +220,7 @@ function getPerformanceById(id) {
 function loadPerformances() {
     console.log('正在加载业绩数据...');
     $.ajax({
-        url: '/api/performances',
+        url: '/api/report/list',
         method: 'GET',
         success: function(response) {
             if (response.code === 200) {
@@ -231,18 +231,16 @@ function loadPerformances() {
                 performances.forEach(function(performance) {
                     const row = `
                         <tr>
-                            <td>${performance.employee.id}</td>
-                            <td>${performance.employee.name}</td>
-                            <td>${performance.year}</td>
-                            <td>${performance.month}</td>
-                            <td>${performance.quarter}</td>
-                            <td>${performance.workScore}</td>
-                            <td>${performance.evaluation}</td>
-                            <td>${performance.status === 0 ? '待确认' : '已确认'}</td>
-                            <td>
-                                <button onclick="showEditModal(${performance.id})">编辑</button>
-                                <button onclick="deletePerformance(${performance.id})">删除</button>
-                            </td>
+                            <td>${performance.employeeNumber}</td>
+                            <td>${performance.name}</td>
+                            <td>${performance.department}</td>
+                            <td>${performance.position}</td>
+                            <td>${performance.yearNum}</td>
+                            <td>${performance.monthNum}</td>
+                            <td>${performance.workDay}</td>
+                            <td>${performance.wage}</td>
+                            <td>${performance.leavesDay}</td>
+                            <td>${performance.nowWage}</td>
                         </tr>
                     `;
                     tableBody.append(row);

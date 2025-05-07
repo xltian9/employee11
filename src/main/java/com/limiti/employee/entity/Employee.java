@@ -2,6 +2,7 @@ package com.limiti.employee.entity;
 import lombok.Data;
 import javax.persistence.*;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Date;
 
 /**
@@ -44,6 +45,10 @@ public class Employee implements Serializable {
     /** 职位 */
     @Column(name = "position", nullable = false, length = 100)
     private String position;
+
+    /** 员工月薪 */
+    @Column(name = "wage", nullable = false, length = 100)
+    private BigDecimal wage;
 
     /** 入职日期 */
     @Column(name = "entry_date")

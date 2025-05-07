@@ -64,6 +64,7 @@ function displayLeaves(leaves) {
                     <td>${getLeaveTypeText(leave.type)}</td>
                     <td>${formatDateTime(leave.startTime)}</td>
                     <td>${formatDateTime(leave.endTime)}</td>
+                    <td>${leave.leavesDay}</td>
                     <td>${getLeaveStatusText(leave.status)}</td>
                     <td>${leave.approver ? leave.approver.name : '-'}</td>
                     <td>

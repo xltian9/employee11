@@ -90,6 +90,7 @@ public class EmployeeService {
         existingEmployee.setPosition(employee.getPosition());
         existingEmployee.setPhone(employee.getPhone());
         existingEmployee.setEmail(employee.getEmail());
+        existingEmployee.setWage(employee.getWage());
         existingEmployee.setEntryDate(employee.getEntryDate());
         existingEmployee.setStatus(employee.getStatus());
         existingEmployee.setUpdateTime(new Date());
