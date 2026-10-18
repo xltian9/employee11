@@ -1,15 +1,14 @@
 # Tomcat配置
 server:
+  port: 8080
   tomcat:
     uri-encoding: UTF-8
-  port: 8080
 
 # Spring配置
 spring:
-  # 应用名称
   application:
     name: employee-system
-  
+
   # 数据库配置
   datasource:
     url: jdbc:mysql://localhost:3306/employee_db?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true
@@ -23,12 +22,17 @@ spring:
       max-file-size: 5MB
       max-request-size: 10MB
 
+  # JSON 序列化：日期统一 yyyy-MM-dd HH:mm:ss（东八区），避免前端拿到 ISO 串后再手工截断
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    serialization:
+      write-dates-as-timestamps: false
 
-    
   # JPA配置
   jpa:
     database: mysql
-    show-sql: true
+    show-sql: false
     hibernate:
       ddl-auto: update
       naming:
@@ -36,9 +40,9 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-        format_sql: true
+        format_sql: false
 
-  # MVC配置
+  # MVC配置（springfox 3.0.0 只能在 ant 匹配策略下工作）
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
@@ -47,33 +51,9 @@ spring:
 logging:
   level:
     root: INFO
-    com.limiti.employee: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.limiti.employee: INFO
 
-
+# 头像上传目录（应用启动时会自动创建）
 file:
   upload:
-    dir: D:\Code\employee11-img/  # 头像上传目录（应用会自动创建）
-
-# MyBatis-Plus配置
-mybatis-plus:
-  type-aliases-package: com.limiti.employee.domain
-  mapper-locations: classpath*:mapper/*Mapper.xml
-  global-config:
-    #数据库相关配置
-    db-config:
-      #主键类型  AUTO:"数据库ID自增", INPUT:"用户输入ID", ID_WORKER:"全局唯一ID (数字类型唯一ID)", UUID:"全局唯一ID UUID";
-      id-type: ASSIGN_ID
-    banner: false
-  #原生配置
-  configuration:
-    map-underscore-to-camel-case: true
-    cache-enabled: false
-    call-setters-on-nulls: true
-    jdbc-type-for-null: 'null'
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  configuration-properties:
-    prefix:
-    blobType: BLOB
-    boolValue: TRUE
+    dir: D:\Code\employee11-img/

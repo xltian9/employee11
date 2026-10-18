@@ -1,47 +1,98 @@
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">考勤管理</h5>
+<div class="page-head">
+    <div>
+        <h2 class="page-title">考勤管理</h2>
+        <p class="page-desc">按「打卡 + 已批准请假 + 加班记录」实时汇总，审批或撤销后立即生效</p>
     </div>
-    <div class="card-body">
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h3 id="currentTime">00:00:00</h3>
-                        <div class="mt-3">
-                            <button class="btn btn-primary me-2" onclick="checkIn()">签到</button>
-                            <button class="btn btn-success" onclick="checkOut()">签退</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div id="todayAttendance">
-                    <!-- 今日考勤信息将通过JavaScript动态加载 -->
-                </div>
-            </div>
+    <div class="toolbar">
+        <label for="attendanceYear" style="font-size:13px;color:#475569;">年月</label>
+        <input type="number" id="attendanceYear" min="2000" max="2100" value="2026"
+               style="width:96px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+        <select id="attendanceMonth"
+                style="width:100px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;"></select>
+        <button class="btn btn-ghost" onclick="loadAttendance()">查询</button>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat">
+        <div class="stat-label">当月工作日</div>
+        <div class="stat-value" id="statWorkDays">-</div>
+        <div class="stat-foot">不含周末与法定节假日</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">全员出勤天数</div>
+        <div class="stat-value" id="statActualDays">-</div>
+        <div class="stat-foot">有打卡记录的工作日</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">旷工合计</div>
+        <div class="stat-value" id="statAbsent">-</div>
+        <div class="stat-foot">既无打卡也无请假</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">迟到 / 早退</div>
+        <div class="stat-value" id="statLateEarly">-</div>
+        <div class="stat-foot">按工资策略的上下班时间判定</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h3 class="card-title">月度考勤汇总</h3>
+        <span class="hint">点击「每日明细」查看某位员工每天的打卡情况</span>
+    </div>
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>工号</th>
+                    <th>姓名</th>
+                    <th class="num">工作日</th>
+                    <th class="num">出勤</th>
+                    <th class="num">迟到</th>
+                    <th class="num">早退</th>
+                    <th class="num">旷工</th>
+                    <th class="num">事假</th>
+                    <th class="num">病假</th>
+                    <th class="num">其他假</th>
+                    <th class="num">加班(小时)</th>
+                    <th style="width:110px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="attendanceTableBody">
+                <tr class="empty-row"><td colspan="12">正在加载…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-mask" id="attendanceDetailModal" hidden>
+    <div class="modal-panel wide">
+        <div class="modal-head">
+            <span id="attendanceDetailTitle">每日明细</span>
+            <button class="modal-close" onclick="hideAttendanceDetail()">×</button>
         </div>
-        
-        <div class="card mt-4">
-            <div class="card-header">
-                <h6 class="mb-0">考勤记录</h6>
-            </div>
-            <div class="card-body">
-                <table class="table table-striped">
+        <div class="modal-body">
+            <div class="table-wrap">
+                <table class="table">
                     <thead>
                         <tr>
-                            <th>日期</th>
-                            <th>签到时间</th>
-                            <th>签退时间</th>
+                            <th style="width:130px;">日期</th>
                             <th>状态</th>
+                            <th>签到</th>
+                            <th>签退</th>
+                            <th>请假类型</th>
                             <th>备注</th>
                         </tr>
                     </thead>
-                    <tbody id="attendanceTableBody">
-                        <!-- 考勤记录将通过JavaScript动态加载 -->
+                    <tbody id="attendanceDetailBody">
+                        <tr class="empty-row"><td colspan="6">正在加载…</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
+        <div class="modal-foot">
+            <button class="btn btn-ghost" onclick="hideAttendanceDetail()">关闭</button>
+        </div>
     </div>
-</div> 
+</div>

@@ -5,11 +5,12 @@ import com.limiti.employee.dto.ChangePasswordRequest;
 import com.limiti.employee.dto.LoginRequest;
 import com.limiti.employee.entity.Admin;
 import com.limiti.employee.entity.Employee;
+import com.limiti.employee.exception.BusinessException;
 import com.limiti.employee.security.SessionUser;
+import com.limiti.employee.service.AuditLogService;
 import com.limiti.employee.service.AuthService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,10 +21,13 @@ import java.util.Map;
 
 /**
  * 认证控制器
+ *
+ * <p>登录失败、改密失败都通过 {@link BusinessException} 抛出，由全局处理器统一转成
+ * 4xx 状态码 + 统一 msg，前端只写一套处理逻辑。</p>
+ *
  * @author Limiti
  * @date 2024/11/15
  */
-@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @Api(tags = "认证接口")
@@ -32,39 +36,48 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     /**
      * 登录接口
      */
     @PostMapping("/login")
     @ApiOperation("登录")
     public Result<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        boolean employeeLogin = "employee".equals(request.getLoginType());
+        String operatorName = request.getUsername() == null ? "" : request.getUsername().trim();
+
+        Result<?> result;
         try {
-            boolean employeeLogin = "employee".equals(request.getLoginType());
-
-            Result<?> result = employeeLogin
-                    ? authService.loginByNameAndPassword(request.getUsername(), request.getPassword())
-                    : authService.login(request.getUsername(), request.getPassword());
-
-            if (result.getCode() == null || result.getCode() != 200) {
-                return result;
-            }
-
-            // 防会话固定攻击：登录成功后丢弃旧会话，重新签发 session
-            HttpSession oldSession = httpRequest.getSession(false);
-            if (oldSession != null) {
-                oldSession.invalidate();
-            }
-            HttpSession session = httpRequest.getSession(true);
             if (employeeLogin) {
-                session.setAttribute(SessionUser.EMPLOYEE_KEY, result.getData());
+                Employee employee = authService.loginByNameAndPassword(request.getUsername(), request.getPassword());
+                result = Result.success(employee);
+                // 防会话固定攻击：登录成功后丢弃旧会话，重新签发 session
+                HttpSession oldSession = httpRequest.getSession(false);
+                if (oldSession != null) {
+                    oldSession.invalidate();
+                }
+                httpRequest.getSession(true).setAttribute(SessionUser.EMPLOYEE_KEY, employee);
+                auditLogService.record(AuditLogService.LOGIN, "登录成功",
+                        "AUTH", employee.getId(), employee.getName(), "员工登录");
             } else {
-                session.setAttribute(SessionUser.ADMIN_KEY, result.getData());
+                Admin admin = authService.login(request.getUsername(), request.getPassword());
+                result = Result.success(admin);
+                HttpSession oldSession = httpRequest.getSession(false);
+                if (oldSession != null) {
+                    oldSession.invalidate();
+                }
+                httpRequest.getSession(true).setAttribute(SessionUser.ADMIN_KEY, admin);
+                auditLogService.record(AuditLogService.LOGIN, "登录成功",
+                        "AUTH", admin.getId(), admin.getUsername(), "管理员登录");
             }
-            return result;
-        } catch (Exception e) {
-            log.error("登录处理失败", e);
-            return Result.error(e.getMessage());
+        } catch (BusinessException e) {
+            auditLogService.record(AuditLogService.LOGIN, "登录失败",
+                    "AUTH", null, operatorName, e.getMessage());
+            throw e;
         }
+        return result;
     }
 
     /**
@@ -74,17 +87,24 @@ public class AuthController {
     @ApiOperation("修改密码")
     public Result<Void> changePassword(@RequestBody ChangePasswordRequest request,
                                        HttpServletRequest httpRequest) {
+        if (request.getOldPassword() == null || request.getNewPassword() == null) {
+            throw BusinessException.badRequest("请填写原密码与新密码");
+        }
         Admin admin = SessionUser.admin(httpRequest);
         if (admin != null) {
-            return authService.changeAdminPassword(admin.getId(),
-                    request.getOldPassword(), request.getNewPassword());
+            authService.changeAdminPassword(admin.getId(), request.getOldPassword(), request.getNewPassword());
+            auditLogService.record(AuditLogService.PASSWORD_CHANGE, "修改密码",
+                    "ADMIN", admin.getId(), admin.getUsername(), "管理员自助修改密码");
+            return Result.success("密码修改成功", null);
         }
         Employee employee = SessionUser.employee(httpRequest);
         if (employee != null) {
-            return authService.changeEmployeePassword(employee.getId(),
-                    request.getOldPassword(), request.getNewPassword());
+            authService.changeEmployeePassword(employee.getId(), request.getOldPassword(), request.getNewPassword());
+            auditLogService.record(AuditLogService.PASSWORD_CHANGE, "修改密码",
+                    "EMPLOYEE", employee.getId(), employee.getName(), "员工自助修改密码");
+            return Result.success("密码修改成功", null);
         }
-        return Result.error(401, "未登录或登录已过期，请重新登录");
+        throw BusinessException.unauthorized("未登录或登录已过期，请重新登录");
     }
 
     /**
@@ -97,7 +117,7 @@ public class AuthController {
         if (session != null) {
             session.invalidate();
         }
-        return Result.success();
+        return Result.success("已退出登录", null);
     }
 
     /**
@@ -125,6 +145,6 @@ public class AuthController {
             data.put("department", employee.getDepartment());
             return Result.success(data);
         }
-        return Result.error(401, "未登录或登录已过期，请重新登录");
+        throw BusinessException.unauthorized("未登录或登录已过期，请重新登录");
     }
 }

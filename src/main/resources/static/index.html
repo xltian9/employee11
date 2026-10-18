@@ -1,218 +1,137 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>员工管理系统</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .content {
-            padding: 20px;
-        }
-        .nav-link.active {
-            background-color: #0d6efd;
-            color: white !important;
-        }
-        .name {
-            margin-right: 10px;
-            color: red;
-            cursor: pointer; /* 添加光标样式，提示可点击 */
-        }
-        .tubiao{
-            width: 50px;
-            height: 50px;
-            margin-left: 10px;
-        }
-    </style>
+    <title>员工管理系统 · 管理端</title>
+    <link href="/css/app.css" rel="stylesheet">
 </head>
+
 <body>
-    <!-- 导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <img class="tubiao" src="../imgs/tubiao.png"/>
-            <a class="navbar-brand" href="#">员工管理系统</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#" onclick="loadContent('department')">部门管理</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="loadContent('employee')">员工管理</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="loadContent('notice')">公告管理</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="loadContent('leave')">请假管理</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="loadContent('performance')">业绩工资</a>
-                    </li>
-                </ul>
-                <!-- 占位元素，后续用 JavaScript 填充管理员名称 -->
-                <span class="navbar-text name" id="adminName" onclick="showAdminModal()"></span>
-                <button class="btn btn-outline-light" onclick="logout()">退出登录</button>
+    <div class="app-shell">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <img src="/imgs/tubiao.png" alt="logo" onerror="this.style.display='none'">
+                <span>员工管理系统</span>
             </div>
-        </div>
-    </nav>
+            <nav class="sidebar-nav" id="sidebarNav">
+                <div class="nav-group">概览</div>
+                <a class="nav-item" data-page="dashboard">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+                    <span>工作台</span>
+                </a>
+                <div class="nav-group">组织</div>
+                <a class="nav-item" data-page="department">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 20V7l8-3 8 3v13"/><path d="M9 20v-6h6v6"/></svg></span>
+                    <span>部门管理</span>
+                </a>
+                <a class="nav-item" data-page="employee">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M17 8h4M19 6v4"/></svg></span>
+                    <span>员工管理</span>
+                </a>
+                <div class="nav-group">日常</div>
+                <a class="nav-item" data-page="attendance">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
+                    <span>考勤管理</span>
+                </a>
+                <a class="nav-item" data-page="leave">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9.5 14.5l1.8 1.8 3.4-3.6"/></svg></span>
+                    <span>请假管理</span>
+                </a>
+                <a class="nav-item" data-page="notice">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M5 10v4a1 1 0 0 0 1 1h2l5 4V5L8 9H6a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg></span>
+                    <span>公告管理</span>
+                </a>
+                <div class="nav-group">薪酬</div>
+                <a class="nav-item" data-page="performance">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 3 4-6"/></svg></span>
+                    <span>业绩工资</span>
+                </a>
+                <a class="nav-item" data-page="adjustment">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="9"/></svg></span>
+                    <span>加班与补发</span>
+                </a>
+                <a class="nav-item" data-page="policy">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 4.6 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 11.5 4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 19.4 11a2 2 0 1 1 0 4z"/></svg></span>
+                    <span>工资策略</span>
+                </a>
+                <div class="nav-group">系统</div>
+                <a class="nav-item" data-page="audit">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span>
+                    <span>审计日志</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">© 员工管理系统</div>
+        </aside>
 
-    <!-- 主要内容区域 -->
-    <div class="container-fluid content">
-        <div id="content">
-            <!-- 这里是动态加载的内容 -->
-            <div id="departmentContent">
-                <h3>部门管理</h3>
-                <div class="card">
-                    <div class="card-body">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>部门名称</th>
-                                    <th>描述</th>
-                                    <th>负责人</th>
-                                    <th>创建时间</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="departmentTableBody">
-                                <!-- 部门数据将在这里动态加载 -->
-                            </tbody>
-                        </table>
+        <!-- 主区域 -->
+        <div class="main">
+            <header class="topbar">
+                <div>
+                    <span class="topbar-title" id="pageTitle">工作台</span>
+                    <span class="topbar-sub" id="pageSub"></span>
+                </div>
+                <div class="topbar-right">
+                    <div class="user-chip" onclick="showAdminModal()" title="修改管理员信息">
+                        <span class="user-avatar" id="adminAvatar">A</span>
+                        <span id="adminName">管理员</span>
                     </div>
+                    <button class="btn btn-ghost" onclick="logout()">退出登录</button>
                 </div>
+            </header>
+
+            <main class="content">
+                <div id="content">
+                    <div class="loading">正在加载…</div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 管理员信息弹层 -->
+    <div class="modal-mask" id="adminModal" hidden>
+        <div class="modal-panel">
+            <div class="modal-head">
+                <span>管理员信息</span>
+                <button class="modal-close" onclick="hideAdminModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="adminForm" onsubmit="return false;">
+                    <input type="hidden" id="adminId">
+                    <div class="field">
+                        <label for="adminUsername">用户名</label>
+                        <input type="text" id="adminUsername" autocomplete="username" required>
+                    </div>
+                    <div class="field">
+                        <label for="adminPassword">新密码（留空表示不修改）</label>
+                        <input type="password" id="adminPassword" autocomplete="new-password"
+                               placeholder="至少 6 位">
+                    </div>
+                </form>
+                <p class="hint">修改后请使用新密码重新登录。</p>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="hideAdminModal()">取消</button>
+                <button class="btn btn-primary" id="adminSubmitBtn" onclick="submitAdminForm()">保存</button>
             </div>
         </div>
     </div>
 
-    <!-- 管理员模态框 -->
-    <div class="modal fade" id="adminModal" tabindex="-1" aria-labelledby="adminModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="adminModalLabel">管理管理员</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="adminForm">
-                        <input type="hidden" id="adminId" name="adminId">
-                        <div class="mb-3">
-                            <label for="username" class="form-label">用户名</label>
-                            <input type="text" class="form-control" id="username" name="username" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="password" class="form-label">密码</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
-                        </div>
-                        <button type="button" class="btn btn-primary w-100" onclick="submitAdminForm()">确定</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // 从 localStorage 读取管理员名称
-            const adminName = localStorage.getItem('adminName');
-            // const adminId = localStorage.getItem('adminId');
-            if (!adminName) {
-                console.log('localStorage 中未找到管理员名称，跳转至登录页面');
-                window.location.href = '/login.html'; 
-                return;
-            }
-            console.log('从 localStorage 获取的管理员名称:', adminName); 
-            // comsole.log('从 localStorage 获取的管理员id:', adminId);
-            document.getElementById('adminName').textContent = adminName;
-        });
-
-        // 显示管理员模态框
-        function showAdminModal() {
-            const modal = new bootstrap.Modal(document.getElementById('adminModal'));
-            // 重置表单
-            document.getElementById('adminForm').reset();
-            document.getElementById('adminId').value = '';
-            modal.show();
-        }
-
-        // 准备修改管理员信息
-        function prepareEditAdmin() {
-            // 调用获取管理员信息接口
-            fetch('/api/admin/info')
-               .then(response => response.json())
-               .then(data => {
-                    if (data.code === 200) {
-                        const admin = data.data;
-                        // 假设返回数据包含 id、username 字段
-                        document.getElementById('adminId').value = admin.id;
-                        document.getElementById('username').value = admin.username;
-                        document.getElementById('password').value = ''; // 通常不显示原密码，让用户重新输入
-                    }
-                    showAdminModal();
-                })
-               .catch(error => {
-                    console.error('获取管理员信息出错:', error);
-                    alert('获取管理员信息出错，请稍后重试');
-                });
-        }
-
-        // 提交管理员表单
-        function submitAdminForm() {
-            const adminId = document.getElementById('adminId').value;
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            const adminData = {
-                id: adminId,
-                username: username,
-                password: password
-            };
-
-            const url = adminId ? '/api/admin/update' : '/api/admin/add';
-            const method = adminId ? 'PUT' : 'POST';
-
-            fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(adminData)
-            })
-           .then(response => response.json())
-           .then(data => {
-                if (data.code === 200) {
-                    alert(adminId ? '管理员信息修改成功' : '管理员添加成功');
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('adminModal'));
-                    modal.hide();
-                } else {
-                    alert(adminId ? '管理员信息修改失败: ' + data.message : '管理员添加失败: ' + data.message);
-                }
-            })
-           .catch(error => {
-                console.error('请求出错:', error);
-                alert('请求出错，请稍后重试');
-            });
-        }
-
-        function logout() {
-            localStorage.removeItem('adminName');
-            window.location.href = '/login.html'; 
-        }
-    </script>
-
-    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/api.js"></script>
     <script src="/js/auth-guard.js"></script>
-    <script>
-        // 管理端页面仅管理员可进入，未登录会自动跳回登录页
-        if (window.AuthGuard) {
-            AuthGuard.require('admin');
-        }
-    </script>
     <script src="/js/main.js"></script>
+    <script src="/js/dashboard.js"></script>
     <script src="/js/department.js"></script>
     <script src="/js/employee.js"></script>
     <script src="/js/notice.js"></script>
     <script src="/js/leave.js"></script>
+    <script src="/js/attendance.js"></script>
     <script src="/js/performance.js"></script>
+    <script src="/js/adjustment.js"></script>
+    <script src="/js/policy.js"></script>
+    <script src="/js/audit.js"></script>
 </body>
+
 </html>

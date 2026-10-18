@@ -1,0 +1,77 @@
+<div class="page-head">
+    <div>
+        <h2 class="page-title">工作台</h2>
+        <p class="page-desc">今天要处理的事情一目了然</p>
+    </div>
+    <div class="toolbar">
+        <span class="hint" id="dashboardPeriod"></span>
+        <button class="btn btn-ghost" onclick="loadDashboard()">刷新</button>
+    </div>
+</div>
+
+<div class="stat-grid" id="dashboardStats">
+    <div class="stat">
+        <div class="stat-label">在职员工</div>
+        <div class="stat-value" id="statEmployees">-</div>
+        <div class="stat-foot" id="statEmployeesFoot">含各部门</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">本月应发合计</div>
+        <div class="stat-value" id="statGross">-</div>
+        <div class="stat-foot" id="statGrossFoot">含奖金与加班费</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">本月实发合计</div>
+        <div class="stat-value" id="statNet">-</div>
+        <div class="stat-foot">已扣社保、公积金与个税</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">待审批请假</div>
+        <div class="stat-value" id="statPendingLeaves">-</div>
+        <div class="stat-foot">点击左侧「请假管理」处理</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h3 class="card-title">待审批请假</h3>
+        <button class="btn btn-sm btn-ghost" onclick="loadContent('leave')">去处理</button>
+    </div>
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>员工</th>
+                    <th>类型</th>
+                    <th>开始时间</th>
+                    <th>结束时间</th>
+                    <th>天数</th>
+                    <th>事由</th>
+                </tr>
+            </thead>
+            <tbody id="dashboardPendingBody">
+                <tr class="empty-row"><td colspan="6">正在加载…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h3 class="card-title">最新公告</h3>
+        <button class="btn btn-sm btn-ghost" onclick="loadContent('notice')">全部公告</button>
+    </div>
+    <div class="card-body" id="dashboardNotices">
+        <p class="hint">正在加载…</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h3 class="card-title">最近操作</h3>
+        <button class="btn btn-sm btn-ghost" onclick="loadContent('audit')">审计日志</button>
+    </div>
+    <div class="card-body" id="dashboardAudits">
+        <p class="hint">正在加载…</p>
+    </div>
+</div>

@@ -2,6 +2,8 @@ package com.limiti.employee.service;
 
 import com.limiti.employee.entity.Attendance;
 import com.limiti.employee.entity.Employee;
+import com.limiti.employee.entity.SalaryPolicy;
+import com.limiti.employee.exception.BusinessException;
 import com.limiti.employee.repository.AttendanceRepository;
 import com.limiti.employee.repository.EmployeeRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -9,108 +11,120 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityNotFoundException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
  * 考勤管理服务
- * 处理员工考勤相关的业务逻辑
+ *
+ * <p>签到/签退只负责记录原始打卡时间与当天状态；月度统计（迟到次数、旷工天数）
+ * 由 {@link AttendanceStatsService} 实时比对工作日算出。</p>
+ *
  * @author Limiti
  * @date 2024/11/30
  */
 @Slf4j
 @Service
 public class AttendanceService {
+
     @Autowired
     private AttendanceRepository attendanceRepository;
-    
+
     @Autowired
     private EmployeeRepository employeeRepository;
-    
+
+    @Autowired
+    private SalaryPolicyService salaryPolicyService;
+
     /**
      * 员工签到
-     * @param employeeId 员工ID
-     * @return 考勤记录
      */
     @Transactional
     public Attendance checkIn(Long employeeId) {
-        log.info("处理员工签到, employeeId: {}", employeeId);
-        
-        // 查找员工
         Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new EntityNotFoundException("员工不存在: " + employeeId));
-        
-        // 检查今日是否已签到
-        LocalDateTime today = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
-        LocalDateTime tomorrow = today.plusDays(1);
-        List<Attendance> todayAttendances = attendanceRepository
-                .findByEmployeeAndCheckInTimeBetween(employee, today, tomorrow);
-        
-        if (!todayAttendances.isEmpty()) {
-            throw new IllegalStateException("今日已签到");
+                .orElseThrow(() -> BusinessException.notFound("员工不存在"));
+        if (Boolean.TRUE.equals(employee.getIsDel())) {
+            throw BusinessException.notFound("员工不存在");
         }
-        
-        // 创建新的考勤记录
+
+        LocalDate today = LocalDate.now();
+        List<Attendance> exists = attendanceRepository
+                .findByEmployee_IdAndDate(employeeId, today);
+        if (!exists.isEmpty()) {
+            throw BusinessException.conflict("今日已签到，无需重复签到");
+        }
+
+        SalaryPolicy policy = salaryPolicyService.get();
+        LocalTime workStart = parseTime(policy.getWorkStart(), LocalTime.of(9, 0));
+
+        LocalDateTime now = LocalDateTime.now();
         Attendance attendance = new Attendance();
         attendance.setEmployee(employee);
-        attendance.setCheckInTime(LocalDateTime.now());
-        attendance.setStatus("正常");
-        attendance.setNote("签到成功");
-        attendance.setCreateTime(LocalDateTime.now());
-        
-        log.info("保存签到记录: {}", attendance);
+        attendance.setDate(today);
+        attendance.setCheckInTime(now);
+        attendance.setStatus(now.toLocalTime().isAfter(workStart)
+                ? Attendance.STATUS_LATE : Attendance.STATUS_NORMAL);
+        attendance.setNote(now.toLocalTime().isAfter(workStart) ? "签到（迟到）" : "签到成功");
+        attendance.setCreateTime(now);
+        log.info("员工 [{}] 签到成功，状态 {}", employee.getName(),
+                Attendance.statusName(attendance.getStatus()));
         return attendanceRepository.save(attendance);
     }
-    
+
     /**
      * 员工签退
-     * @param attendanceId 考勤记录ID
-     * @return 更新后的考勤记录
      */
     @Transactional
     public Attendance checkOut(Long attendanceId) {
-        log.info("处理员工签退, attendanceId: {}", attendanceId);
-        
-        // 查找考勤记录
         Attendance attendance = attendanceRepository.findById(attendanceId)
-                .orElseThrow(() -> new EntityNotFoundException("考勤记录不存在: " + attendanceId));
-        
-        // 检查是否已签退
+                .orElseThrow(() -> BusinessException.notFound("考勤记录不存在"));
         if (attendance.getCheckOutTime() != null) {
-            throw new IllegalStateException("已经签退");
+            throw BusinessException.conflict("今日已经签退，无需重复签退");
         }
-        
-        // 更新签退时间和状态
+
         LocalDateTime now = LocalDateTime.now();
         attendance.setCheckOutTime(now);
-        
-        // 计算工作时长，设置考勤状态
+
+        SalaryPolicy policy = salaryPolicyService.get();
+        LocalTime workStart = parseTime(policy.getWorkStart(), LocalTime.of(9, 0));
+        LocalTime workEnd = parseTime(policy.getWorkEnd(), LocalTime.of(18, 0));
+
         LocalDateTime checkInTime = attendance.getCheckInTime();
-        if (checkInTime != null) {
-            if (checkInTime.getHour() >= 9 && checkInTime.getMinute() > 0) {
-                attendance.setStatus("迟到");
-            }
-            if (now.getHour() < 18) {
-                attendance.setStatus("早退");
-            }
+        boolean late = checkInTime != null && checkInTime.toLocalTime().isAfter(workStart);
+        boolean early = now.toLocalTime().isBefore(workEnd);
+        if (late && early) {
+            attendance.setStatus(Attendance.STATUS_LATE_AND_EARLY);
+        } else if (late) {
+            attendance.setStatus(Attendance.STATUS_LATE);
+        } else if (early) {
+            attendance.setStatus(Attendance.STATUS_EARLY);
+        } else {
+            attendance.setStatus(Attendance.STATUS_NORMAL);
         }
-        
-        log.info("更新签退记录: {}", attendance);
+        log.info("考勤记录 [{}] 签退，状态 {}", attendanceId,
+                Attendance.statusName(attendance.getStatus()));
         return attendanceRepository.save(attendance);
     }
-    
+
+    private LocalTime parseTime(String text, LocalTime fallback) {
+        if (text == null || text.trim().isEmpty()) {
+            return fallback;
+        }
+        try {
+            return LocalTime.parse(text.trim());
+        } catch (RuntimeException e) {
+            return fallback;
+        }
+    }
+
     /**
      * 查询员工的考勤记录
-     * @param employeeId 员工ID
-     * @return 考勤记录列表
      */
     public List<Attendance> findByEmployeeId(Long employeeId) {
-        log.info("查询员工考勤记录, employeeId: {}", employeeId);
-        
         Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new EntityNotFoundException("员工不存在: " + employeeId));
-                
+                .orElseThrow(() -> BusinessException.notFound("员工不存在"));
         return attendanceRepository.findByEmployee(employee);
     }
-} 
+}

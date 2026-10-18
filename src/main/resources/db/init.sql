@@ -104,7 +104,11 @@ CREATE TABLE performances (
     quarter TINYINT NOT NULL COMMENT '季度：1-4',
     month INT NULL COMMENT '历史字段：月度业绩，可为空',
     work_score INT NULL COMMENT '历史字段：工作评分，可为空',
-    score DECIMAL(3,1) NOT NULL COMMENT '评分',
+    score DECIMAL(3,1) NULL COMMENT '业绩分（权重60%）',
+    ability_score DECIMAL(3,1) NULL COMMENT '能力分（权重20%）',
+    attitude_score DECIMAL(3,1) NULL COMMENT '态度分（权重20%）',
+    final_score DECIMAL(4,1) NULL COMMENT '综合得分（后端计算）',
+    grade VARCHAR(2) NULL COMMENT '等级：S/A/B/C/D',
     evaluation TEXT NOT NULL COMMENT '评价',
     evaluator_id BIGINT NOT NULL COMMENT '评价人ID',
     status TINYINT NOT NULL DEFAULT 0 COMMENT '状态：0-待确认，1-已确认',
@@ -114,6 +118,87 @@ CREATE TABLE performances (
     FOREIGN KEY (evaluator_id) REFERENCES admins(id),
     UNIQUE KEY uk_employee_year_quarter (employee_id, year, quarter)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='绩效表';
+
+-- 薪酬规则表（全局单行配置，id 固定为 1）
+CREATE TABLE salary_policy (
+    id BIGINT PRIMARY KEY COMMENT '固定为 1',
+    leave_deduct_mode TINYINT NOT NULL DEFAULT 0 COMMENT '请假扣款方式：0-按日工资，1-固定金额',
+    leave_deduct_amount DECIMAL(10,2) NOT NULL DEFAULT 200.00 COMMENT '固定扣款金额（每天）',
+    sick_leave_rate DECIMAL(4,2) NOT NULL DEFAULT 0.50 COMMENT '病假扣款系数（相对事假）',
+    absent_deduct_days DECIMAL(4,2) NOT NULL DEFAULT 3.00 COMMENT '旷工一天折算扣几天工资',
+    late_deduct_amount DECIMAL(10,2) NOT NULL DEFAULT 50.00 COMMENT '迟到/早退每次扣款',
+    overtime_weekday_rate DECIMAL(4,2) NOT NULL DEFAULT 1.50 COMMENT '工作日加班费倍率',
+    overtime_weekend_rate DECIMAL(4,2) NOT NULL DEFAULT 2.00 COMMENT '周末加班费倍率',
+    overtime_holiday_rate DECIMAL(4,2) NOT NULL DEFAULT 3.00 COMMENT '节假日加班费倍率',
+    social_insurance_rate DECIMAL(5,4) NOT NULL DEFAULT 0.1050 COMMENT '个人社保比例',
+    housing_fund_rate DECIMAL(5,4) NOT NULL DEFAULT 0.0700 COMMENT '个人公积金比例',
+    tax_threshold DECIMAL(10,2) NOT NULL DEFAULT 5000.00 COMMENT '个税起征点（月）',
+    bonus_rate_s DECIMAL(4,2) NOT NULL DEFAULT 0.25 COMMENT 'S 级季度奖金系数',
+    bonus_rate_a DECIMAL(4,2) NOT NULL DEFAULT 0.18 COMMENT 'A 级季度奖金系数',
+    bonus_rate_b DECIMAL(4,2) NOT NULL DEFAULT 0.12 COMMENT 'B 级季度奖金系数',
+    bonus_rate_c DECIMAL(4,2) NOT NULL DEFAULT 0.06 COMMENT 'C 级季度奖金系数',
+    bonus_rate_d DECIMAL(4,2) NOT NULL DEFAULT 0.00 COMMENT 'D 级季度奖金系数',
+    work_start VARCHAR(5) NOT NULL DEFAULT '09:00' COMMENT '上班时间（判迟到）',
+    work_end VARCHAR(5) NOT NULL DEFAULT '18:00' COMMENT '下班时间（判早退）',
+    late_to_absent_minutes INT NOT NULL DEFAULT 120 COMMENT '迟到超过多少分钟按旷工半天/一天',
+    update_by VARCHAR(50) NULL COMMENT '最后修改人',
+    update_time DATETIME NULL COMMENT '最后修改时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='薪酬规则（全局单行）';
+
+-- 审计日志表
+CREATE TABLE audit_logs (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '日志ID',
+    operator_id BIGINT NULL COMMENT '操作人ID',
+    operator_name VARCHAR(50) NULL COMMENT '操作人姓名',
+    operator_type VARCHAR(20) NOT NULL COMMENT '操作人类型：ADMIN/EMPLOYEE/SYSTEM/ANONYMOUS',
+    action VARCHAR(40) NOT NULL COMMENT '动作编码',
+    action_name VARCHAR(60) NOT NULL COMMENT '动作名称',
+    target_type VARCHAR(30) NULL COMMENT '对象类型',
+    target_id BIGINT NULL COMMENT '对象ID',
+    target_name VARCHAR(100) NULL COMMENT '对象名称',
+    detail TEXT NULL COMMENT '明细（含变更前后值）',
+    ip VARCHAR(64) NULL COMMENT '来源 IP',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '时间',
+    KEY idx_audit_time (create_time),
+    KEY idx_audit_operator (operator_name),
+    KEY idx_audit_action (action)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审计日志';
+
+-- 补发 / 扣款表
+CREATE TABLE salary_adjustments (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'ID',
+    employee_id BIGINT NOT NULL COMMENT '员工ID',
+    employee_name VARCHAR(50) NULL COMMENT '员工姓名（冗余，便于展示）',
+    year INT NOT NULL COMMENT '年份',
+    month INT NOT NULL COMMENT '月份',
+    type TINYINT NOT NULL COMMENT '类型：1-补发，2-扣款',
+    amount DECIMAL(10,2) NOT NULL COMMENT '金额（正数）',
+    reason VARCHAR(200) NOT NULL COMMENT '原因',
+    operator_id BIGINT NULL COMMENT '操作人ID',
+    operator_name VARCHAR(50) NULL COMMENT '操作人姓名',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    KEY idx_adj_month (year, month),
+    KEY idx_adj_employee (employee_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='补发扣款';
+
+-- 加班记录表
+CREATE TABLE overtime_records (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'ID',
+    employee_id BIGINT NOT NULL COMMENT '员工ID',
+    employee_name VARCHAR(50) NULL COMMENT '员工姓名（冗余）',
+    work_date DATE NOT NULL COMMENT '加班日期',
+    hours DECIMAL(5,1) NOT NULL COMMENT '加班小时数',
+    ot_type TINYINT NOT NULL COMMENT '类型：1-工作日，2-周末，3-节假日',
+    reason VARCHAR(200) NULL COMMENT '加班事由',
+    operator_id BIGINT NULL COMMENT '操作人ID',
+    operator_name VARCHAR(50) NULL COMMENT '操作人姓名',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    KEY idx_ot_date (work_date),
+    KEY idx_ot_employee (employee_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='加班记录';
+
+-- 薪酬规则默认值
+INSERT INTO salary_policy (id) VALUES (1);
 
 -- 插入初始数据
 -- 密码为 MD5 加密后的值：admin123 -> 0192023a7bbd73250516f069df18b500

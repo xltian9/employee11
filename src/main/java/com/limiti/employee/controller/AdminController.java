@@ -2,11 +2,11 @@ package com.limiti.employee.controller;
 
 import com.limiti.employee.common.Result;
 import com.limiti.employee.entity.Admin;
+import com.limiti.employee.exception.BusinessException;
 import com.limiti.employee.security.SessionUser;
 import com.limiti.employee.service.AdminService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -14,10 +14,10 @@ import javax.validation.Valid;
 
 /**
  * 管理员控制器
+ *
  * @author Limiti
  * @date 2024/11/15
  */
-@Slf4j
 @RestController
 @RequestMapping("/api/admin")
 @Api(tags = "管理员接口")
@@ -25,7 +25,6 @@ public class AdminController {
 
     private final AdminService adminService;
 
-    // 构造函数注入 AdminService
     public AdminController(AdminService adminService) {
         this.adminService = adminService;
     }
@@ -33,32 +32,33 @@ public class AdminController {
     @GetMapping("/info")
     @ApiOperation("获取管理员信息")
     public Result<Admin> getInfo(HttpServletRequest request) {
-        if (!SessionUser.isAdmin(request)) {
-            return Result.error(403, "无权访问");
-        }
+        Admin current = SessionUser.requireAdmin(request);
         Admin admin = new Admin();
-        admin.setUsername("admin");
-        admin.setStatus(true);
+        admin.setUsername(current.getUsername());
+        admin.setName(current.getName());
+        admin.setPhone(current.getPhone());
+        admin.setEmail(current.getEmail());
+        admin.setStatus(current.getStatus());
         return Result.success(admin);
     }
 
     @PostMapping("/add")
     @ApiOperation("添加管理员")
     public Result<Admin> addAdmin(@Valid @RequestBody Admin admin, HttpServletRequest request) {
-        if (!SessionUser.isAdmin(request)) {
-            return Result.error(403, "只有管理员才能新增管理员");
+        SessionUser.requireAdmin(request);
+        if (admin.getUsername() == null || admin.getUsername().trim().isEmpty()) {
+            throw BusinessException.badRequest("请输入管理员用户名");
         }
-        Admin addedAdmin = adminService.addAdmin(admin);
-        return Result.success(addedAdmin);
+        return Result.success("添加成功", adminService.addAdmin(admin));
     }
 
     @PutMapping("/update")
     @ApiOperation("修改管理员信息")
     public Result<Admin> updateAdmin(@Valid @RequestBody Admin admin, HttpServletRequest request) {
-        if (!SessionUser.isAdmin(request)) {
-            return Result.error(403, "只有管理员才能修改管理员信息");
+        SessionUser.requireAdmin(request);
+        if (admin.getId() == null) {
+            throw BusinessException.badRequest("缺少管理员 ID");
         }
-        Admin updatedAdmin = adminService.updateAdmin(admin);
-        return Result.success(updatedAdmin);
+        return Result.success("修改成功", adminService.updateAdmin(admin));
     }
-} 
+}

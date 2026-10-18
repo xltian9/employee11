@@ -1,429 +1,308 @@
 /**
- * 月度工资报告（含季度业绩奖金）
+ * 管理端业绩工资：月度工资报告（含考勤扣款、加班费、季度奖金）+ 业绩录入 + Excel 导出。
  *
- * 数据来源：GET /api/report/list?year=&month=
- * 录入业绩：POST /api/performances
+ * @author Limiti
  */
-(function () {
+(function (window) {
     'use strict';
 
-    /* ---------------- 工具函数 ---------------- */
+    var filtersReady = false;
+    var currentRows = [];
+    var gradeClass = {
+        S: 'badge-danger',
+        A: 'badge-warn',
+        B: 'badge-info',
+        C: 'badge-muted',
+        D: 'badge-muted'
+    };
 
-    function escapeHtml(value) {
-        if (value === null || value === undefined) {
-            return '';
-        }
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+    function pad(value) {
+        return value < 10 ? '0' + value : '' + value;
     }
 
-    function money(value) {
-        if (value === null || value === undefined || value === '') {
-            return '-';
-        }
-        var number = Number(value);
-        if (isNaN(number)) {
-            return '-';
-        }
-        return number.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
-
-    function currentYear() {
-        return new Date().getFullYear();
-    }
-
-    function currentMonth() {
-        return new Date().getMonth() + 1;
-    }
-
-    function currentQuarter() {
-        return Math.floor((currentMonth() - 1) / 3) + 1;
-    }
-
-    function alertError(message) {
-        window.alert(message);
-    }
-
-    /* ---------------- 筛选区初始化 ---------------- */
-
-    function initReportFilters() {
+    function initFilters() {
         var monthSelect = document.getElementById('reportMonth');
-        var yearInput = document.getElementById('reportYear');
-        if (!monthSelect || !yearInput) {
+        if (!monthSelect) {
             return;
         }
-        if (monthSelect.options.length === 0) {
-            for (var month = 1; month <= 12; month++) {
-                var option = document.createElement('option');
-                option.value = String(month);
-                option.textContent = month + ' 月';
-                monthSelect.appendChild(option);
+        if (!filtersReady) {
+            var html = '';
+            for (var i = 1; i <= 12; i++) {
+                html += '<option value="' + i + '">' + i + ' 月</option>';
             }
+            monthSelect.innerHTML = html;
+            var now = new Date();
+            document.getElementById('reportYear').value = now.getFullYear();
+            monthSelect.value = now.getMonth() + 1;
+            filtersReady = true;
         }
-        monthSelect.value = String(currentMonth());
-        yearInput.value = String(currentYear());
     }
 
-    /* ---------------- 报告加载与渲染 ---------------- */
-
-    function loadPerformances() {
-        // 页面内容每次切换都会重新注入，这里按 DOM 是否已初始化来判断，避免重置用户已选的年月
-        var monthSelect = document.getElementById('reportMonth');
-        if (monthSelect && monthSelect.options.length === 0) {
-            initReportFilters();
-        }
-        var yearInput = document.getElementById('reportYear');
-        var tbody = document.getElementById('performanceBody');
-        if (!yearInput || !monthSelect || !tbody) {
-            return;
-        }
-        var year = parseInt(yearInput.value, 10);
-        var month = parseInt(monthSelect.value, 10);
-        if (isNaN(year) || isNaN(month)) {
-            alertError('请选择有效的年份和月份');
-            return;
-        }
-
-        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">加载中...</td></tr>';
-        var foot = document.getElementById('performanceFoot');
-        if (foot) {
-            foot.innerHTML = '';
-        }
-
-        fetch('/api/report/list?year=' + encodeURIComponent(year) + '&month=' + encodeURIComponent(month), {
-            credentials: 'same-origin'
-        })
-            .then(function (response) {
-                return response.json();
-            })
-            .then(function (result) {
-                if (!result || result.code !== 200) {
-                    var message = result && result.msg ? result.msg : '加载工资报告失败';
-                    tbody.innerHTML = '<tr><td colspan="13" class="text-center text-danger">'
-                        + escapeHtml(message) + '</td></tr>';
-                    return;
-                }
-                renderReport(result.data || []);
-            })
-            .catch(function (error) {
-                console.error('加载工资报告出错:', error);
-                tbody.innerHTML = '<tr><td colspan="13" class="text-center text-danger">加载工资报告失败，请稍后重试</td></tr>';
-            });
+    function period() {
+        var year = Number(document.getElementById('reportYear').value) || new Date().getFullYear();
+        var month = Number(document.getElementById('reportMonth').value) || (new Date().getMonth() + 1);
+        return { year: year, month: month };
     }
 
-    function renderReport(rows) {
-        var tbody = document.getElementById('performanceBody');
-        var foot = document.getElementById('performanceFoot');
-        if (!tbody) {
+    function hours(row) {
+        var weekday = Number(row.overtimeWeekdayHours) || 0;
+        var weekend = Number(row.overtimeWeekendHours) || 0;
+        var holiday = Number(row.overtimeHolidayHours) || 0;
+        return weekday + weekend + holiday;
+    }
+
+    function attention(value) {
+        var number = Number(value) || 0;
+        return number > 0 ? '<span style="color:#dc2626;">' + number + '</span>' : '0';
+    }
+
+    function gradeCell(row) {
+        if (row.performanceScore === null || row.performanceScore === undefined) {
+            return '<span class="muted">未录入</span>';
+        }
+        var grade = row.performanceGrade || '-';
+        return '<strong>' + Utils.num(row.performanceScore, 1) + '</strong> '
+            + '<span class="badge ' + (gradeClass[grade] || '') + '">' + Utils.escapeHtml(grade) + '</span>';
+    }
+
+    function render(rows) {
+        currentRows = rows || [];
+        var body = document.getElementById('performanceBody');
+        if (!currentRows.length) {
+            body.innerHTML = '<tr class="empty-row"><td colspan="24">本月没有在职员工</td></tr>';
+            document.getElementById('performanceFoot').innerHTML = '';
+            resetStats();
             return;
         }
-        if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">当前月份没有在职员工</td></tr>';
-            if (foot) {
-                foot.innerHTML = '';
-            }
-            return;
-        }
 
-        var totalWage = 0;
-        var totalBonus = 0;
-        var totalNowWage = 0;
-        var totalLeaves = 0;
-        var html = '';
-
-        rows.forEach(function (row) {
-            var wage = Number(row.wage || 0);
-            var bonus = Number(row.bonus || 0);
-            var nowWage = Number(row.nowWage || 0);
-            var leaves = Number(row.leavesDay || 0);
-            totalWage += wage;
-            totalBonus += bonus;
-            totalNowWage += nowWage;
-            totalLeaves += leaves;
-
-            html += '<tr>'
-                + '<td>' + escapeHtml(row.employeeNumber || row.employeeId) + '</td>'
-                + '<td>' + escapeHtml(row.name) + '</td>'
-                + '<td>' + escapeHtml(row.department) + '</td>'
-                + '<td>' + escapeHtml(row.position) + '</td>'
-                + '<td>' + escapeHtml(row.yearNum) + '</td>'
-                + '<td>' + escapeHtml(row.monthNum) + '</td>'
-                + '<td>' + escapeHtml(row.workDay) + '</td>'
-                + '<td>' + money(row.wage) + '</td>'
-                + '<td>' + escapeHtml(row.leavesDay) + '</td>'
-                + '<td>' + (row.performanceScore === null || row.performanceScore === undefined
-                    ? '<span class="text-muted">未录入</span>'
-                    : escapeHtml(row.performanceScore)) + '</td>'
-                + '<td class="text-success">' + money(row.bonus) + '</td>'
-                + '<td class="fw-bold">' + money(row.nowWage) + '</td>'
-                + '<td><button type="button" class="btn btn-sm btn-outline-primary" onclick="openPerformanceModal('
-                + escapeHtml(row.employeeId) + ', '
-                + (row.performanceId === null || row.performanceId === undefined ? 'null' : escapeHtml(row.performanceId))
-                + ')">' + (row.performanceId ? '修改业绩' : '录入业绩') + '</button></td>'
+        body.innerHTML = currentRows.map(function (row) {
+            var perfButton = row.performanceId
+                ? '<button class="link-btn" onclick="openPerformanceModal(' + row.employeeId + ',' + row.performanceId + ')">修改业绩</button>'
+                : '<button class="link-btn" onclick="openPerformanceModal(' + row.employeeId + ')">录入业绩</button>';
+            return '<tr>'
+                + '<td class="sticky-col"><strong>' + Utils.escapeHtml(row.name || '') + '</strong>'
+                + '<div class="muted" style="font-size:12px;">' + Utils.escapeHtml(row.employeeNumber || '') + '</div></td>'
+                + '<td>' + Utils.escapeHtml(row.department || '-')
+                + '<div class="muted" style="font-size:12px;">' + Utils.escapeHtml(row.position || '') + '</div></td>'
+                + '<td class="num">' + Utils.num(row.workDay) + '</td>'
+                + '<td class="num">' + Utils.num(row.actualDays) + '</td>'
+                + '<td class="num">' + Utils.num(row.lateCount) + '</td>'
+                + '<td class="num">' + Utils.num(row.earlyCount) + '</td>'
+                + '<td class="num">' + attention(row.absentDays) + '</td>'
+                + '<td class="num">' + Utils.num(row.leaveDays) + '</td>'
+                + '<td class="num">' + Utils.num(hours(row), 1) + '</td>'
+                + '<td class="num">' + Utils.money(row.wage) + '</td>'
+                + '<td class="num">' + Utils.money(row.leaveDeduct) + '</td>'
+                + '<td class="num">' + Utils.money(row.absentDeduct) + '</td>'
+                + '<td class="num">' + Utils.money(row.lateDeduct) + '</td>'
+                + '<td class="num">' + Utils.money(row.overtimePay) + '</td>'
+                + '<td class="num">' + gradeCell(row) + '</td>'
+                + '<td class="num">' + Utils.money(row.bonus) + '</td>'
+                + '<td class="num">' + Utils.money(row.adjustAdd) + '</td>'
+                + '<td class="num">' + Utils.money(row.adjustDeduct) + '</td>'
+                + '<td class="num"><strong>' + Utils.money(row.grossPay) + '</strong></td>'
+                + '<td class="num">' + Utils.money(row.socialInsurance) + '</td>'
+                + '<td class="num">' + Utils.money(row.housingFund) + '</td>'
+                + '<td class="num">' + Utils.money(row.tax) + '</td>'
+                + '<td class="num"><strong style="color:#0f766e;">' + Utils.money(row.netPay) + '</strong></td>'
+                + '<td>' + perfButton + '</td>'
                 + '</tr>';
+        }).join('');
+
+        var totals = ['wage', 'leaveDeduct', 'absentDeduct', 'lateDeduct', 'overtimePay', 'bonus',
+            'adjustAdd', 'adjustDeduct', 'grossPay', 'socialInsurance', 'housingFund', 'tax', 'netPay'];
+        var sums = {};
+        totals.forEach(function (key) {
+            sums[key] = currentRows.reduce(function (acc, row) {
+                return acc + (Number(row[key]) || 0);
+            }, 0);
         });
 
-        tbody.innerHTML = html;
+        document.getElementById('performanceFoot').innerHTML = '<tr class="total-row">'
+            + '<td class="sticky-col">合计</td>'
+            + '<td>' + currentRows.length + ' 人</td>'
+            + '<td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td>'
+            + '<td class="num">-</td><td class="num">-</td><td class="num">-</td>'
+            + '<td class="num">' + Utils.money(sums.wage) + '</td>'
+            + '<td class="num">' + Utils.money(sums.leaveDeduct) + '</td>'
+            + '<td class="num">' + Utils.money(sums.absentDeduct) + '</td>'
+            + '<td class="num">' + Utils.money(sums.lateDeduct) + '</td>'
+            + '<td class="num">' + Utils.money(sums.overtimePay) + '</td>'
+            + '<td class="num">-</td>'
+            + '<td class="num">' + Utils.money(sums.bonus) + '</td>'
+            + '<td class="num">' + Utils.money(sums.adjustAdd) + '</td>'
+            + '<td class="num">' + Utils.money(sums.adjustDeduct) + '</td>'
+            + '<td class="num">' + Utils.money(sums.grossPay) + '</td>'
+            + '<td class="num">' + Utils.money(sums.socialInsurance) + '</td>'
+            + '<td class="num">' + Utils.money(sums.housingFund) + '</td>'
+            + '<td class="num">' + Utils.money(sums.tax) + '</td>'
+            + '<td class="num">' + Utils.money(sums.netPay) + '</td>'
+            + '<td></td>'
+            + '</tr>';
 
-        if (foot) {
-            foot.innerHTML = '<tr>'
-                + '<td colspan="7" class="text-end fw-bold">合计</td>'
-                + '<td class="fw-bold">' + money(totalWage) + '</td>'
-                + '<td class="fw-bold">' + totalLeaves + '</td>'
-                + '<td></td>'
-                + '<td class="fw-bold text-success">' + money(totalBonus) + '</td>'
-                + '<td class="fw-bold">' + money(totalNowWage) + '</td>'
-                + '</tr>';
+        document.getElementById('statGrossPay').textContent = Utils.money(sums.grossPay);
+        document.getElementById('statNetPay').textContent = Utils.money(sums.netPay);
+        document.getElementById('statBonus').textContent = Utils.money(sums.bonus);
+        var withPerformance = currentRows.filter(function (row) {
+            return row.performanceScore !== null && row.performanceScore !== undefined;
+        }).length;
+        document.getElementById('statPerformance').textContent = withPerformance + ' / ' + currentRows.length;
+    }
+
+    function resetStats() {
+        ['statGrossPay', 'statNetPay', 'statBonus'].forEach(function (id) {
+            var element = document.getElementById(id);
+            if (element) {
+                element.textContent = Utils.money(0);
+            }
+        });
+        var performance = document.getElementById('statPerformance');
+        if (performance) {
+            performance.textContent = '0 / 0';
         }
     }
 
-    /* ---------------- 录入业绩 ---------------- */
-
-    function loadEmployeeOptions(selectedId) {
-        var select = document.getElementById('perfEmployeeId');
-        if (!select) {
-            return;
-        }
-        select.innerHTML = '<option value="">加载中...</option>';
-        fetch('/api/employees', { credentials: 'same-origin' })
-            .then(function (response) {
-                return response.json();
-            })
-            .then(function (result) {
-                if (!result || result.code !== 200 || !result.data) {
-                    select.innerHTML = '<option value="">员工列表加载失败</option>';
-                    return;
-                }
-                var options = '<option value="">请选择员工</option>';
-                result.data.forEach(function (employee) {
-                    var label = (employee.employeeNumber ? employee.employeeNumber + ' ' : '')
-                        + (employee.name || '') + (employee.department ? '（' + employee.department + '）' : '');
-                    options += '<option value="' + escapeHtml(employee.id) + '">' + escapeHtml(label) + '</option>';
-                });
-                select.innerHTML = options;
-                if (selectedId) {
-                    select.value = String(selectedId);
-                }
-            })
+    function loadPerformances() {
+        initFilters();
+        var p = period();
+        Api.get('/api/report/list?year=' + p.year + '&month=' + p.month)
+            .then(render)
             .catch(function (error) {
-                console.error('加载员工列表出错:', error);
-                select.innerHTML = '<option value="">员工列表加载失败</option>';
+                Toast.error(error.message);
+                document.getElementById('performanceBody').innerHTML =
+                    '<tr class="empty-row"><td colspan="24">加载失败</td></tr>';
             });
     }
 
-    function resetModal() {
-        document.getElementById('performanceId').value = '';
-        document.getElementById('perfScore').value = '';
-        document.getElementById('perfEvaluation').value = '';
-        document.getElementById('perfStatus').value = '1';
-        document.getElementById('modalTitle').textContent = '录入业绩';
-        var employeeSelect = document.getElementById('perfEmployeeId');
-        if (employeeSelect) {
-            employeeSelect.disabled = false;
-        }
-    }
-
-    /**
-     * 打开业绩录入/修改浮层
-     * @param {number|null} employeeId    员工ID，为空表示由用户在弹窗里选择
-     * @param {number|null} performanceId 已有业绩记录ID，为空表示新增
-     */
-    function openPerformanceModal(employeeId, performanceId) {
-        var modal = document.getElementById('performanceModal');
-        if (!modal) {
-            return;
-        }
-        resetModal();
-
-        var yearInput = document.getElementById('reportYear');
-        var monthSelect = document.getElementById('reportMonth');
-        var reportYear = yearInput ? parseInt(yearInput.value, 10) : currentYear();
-        var reportMonth = monthSelect ? parseInt(monthSelect.value, 10) : currentMonth();
-
-        loadEmployeeOptions(employeeId);
-        document.getElementById('perfYear').value = String(isNaN(reportYear) ? currentYear() : reportYear);
-        document.getElementById('perfQuarter').value = String(
-            isNaN(reportMonth) ? currentQuarter() : (Math.floor((reportMonth - 1) / 3) + 1));
-
-        if (performanceId) {
-            document.getElementById('performanceId').value = String(performanceId);
-            document.getElementById('modalTitle').textContent = '修改业绩';
-            var employeeSelect = document.getElementById('perfEmployeeId');
-            if (employeeSelect) {
-                employeeSelect.disabled = true;
+    function loadEmployeeOptions(selectedId) {
+        return Api.get('/api/employees').then(function (employees) {
+            var select = document.getElementById('perfEmployeeId');
+            select.innerHTML = (employees || []).map(function (employee) {
+                return '<option value="' + employee.id + '">'
+                    + Utils.escapeHtml(employee.name + '（' + (employee.employeeNumber || '') + '）')
+                    + '</option>';
+            }).join('');
+            if (selectedId) {
+                select.value = String(selectedId);
             }
-            fetch('/api/performances/' + encodeURIComponent(performanceId), { credentials: 'same-origin' })
-                .then(function (response) {
-                    return response.json();
-                })
-                .then(function (result) {
-                    if (!result || result.code !== 200 || !result.data) {
-                        alertError(result && result.msg ? result.msg : '读取业绩记录失败');
-                        return;
-                    }
-                    var record = result.data;
-                    document.getElementById('perfYear').value = String(record.year);
-                    document.getElementById('perfQuarter').value = String(record.quarter);
-                    document.getElementById('perfScore').value = String(record.score);
-                    document.getElementById('perfEvaluation').value = record.evaluation || '';
-                    document.getElementById('perfStatus').value = String(record.status === null || record.status === undefined ? 1 : record.status);
-                })
-                .catch(function (error) {
-                    console.error('读取业绩记录出错:', error);
-                    alertError('读取业绩记录失败，请稍后重试');
-                });
-        }
-
-        modal.style.display = 'block';
+            return employees;
+        });
     }
 
     function showCreateModal() {
-        openPerformanceModal(null, null);
+        document.getElementById('performanceId').value = '';
+        document.getElementById('performanceModalTitle').textContent = '录入业绩';
+        var now = new Date();
+        var quarter = Math.floor(now.getMonth() / 3) + 1;
+        document.getElementById('perfYear').value = now.getFullYear();
+        document.getElementById('perfQuarter').value = String(quarter);
+        document.getElementById('perfScore').value = '';
+        document.getElementById('perfAbility').value = '';
+        document.getElementById('perfAttitude').value = '';
+        document.getElementById('perfEvaluation').value = '';
+        document.getElementById('perfEmployeeId').disabled = false;
+        loadEmployeeOptions(null).then(function () {
+            document.getElementById('performanceModal').hidden = false;
+        }).catch(function (error) {
+            Toast.error(error.message);
+        });
+    }
+
+    function openPerformanceModal(employeeId, performanceId) {
+        loadEmployeeOptions(employeeId).then(function () {
+            if (!performanceId) {
+                document.getElementById('performanceId').value = '';
+                document.getElementById('performanceModalTitle').textContent = '录入业绩';
+                document.getElementById('perfEmployeeId').disabled = true;
+                var now = new Date();
+                document.getElementById('perfYear').value = now.getFullYear();
+                document.getElementById('perfQuarter').value = String(Math.floor(now.getMonth() / 3) + 1);
+                document.getElementById('perfScore').value = '';
+                document.getElementById('perfAbility').value = '';
+                document.getElementById('perfAttitude').value = '';
+                document.getElementById('perfEvaluation').value = '';
+                document.getElementById('performanceModal').hidden = false;
+                return;
+            }
+            return Api.get('/api/performances/' + performanceId).then(function (data) {
+                document.getElementById('performanceId').value = data.id;
+                document.getElementById('performanceModalTitle').textContent = '修改业绩';
+                document.getElementById('perfEmployeeId').disabled = true;
+                document.getElementById('perfYear').value = data.year;
+                document.getElementById('perfQuarter').value = String(data.quarter);
+                document.getElementById('perfScore').value = data.score === null ? '' : data.score;
+                document.getElementById('perfAbility').value = data.abilityScore === null ? '' : data.abilityScore;
+                document.getElementById('perfAttitude').value = data.attitudeScore === null ? '' : data.attitudeScore;
+                document.getElementById('perfEvaluation').value = data.evaluation || '';
+                document.getElementById('performanceModal').hidden = false;
+            });
+        }).catch(function (error) {
+            Toast.error(error.message);
+        });
     }
 
     function closeModal() {
-        var modal = document.getElementById('performanceModal');
-        if (modal) {
-            modal.style.display = 'none';
+        document.getElementById('performanceModal').hidden = true;
+    }
+
+    function readScore(id, label) {
+        var raw = document.getElementById(id).value.trim();
+        if (raw === '') {
+            throw new Error('请填写' + label);
         }
+        var value = Number(raw);
+        if (isNaN(value) || value < 0 || value > 100) {
+            throw new Error(label + '必须在 0 到 100 之间');
+        }
+        return value;
     }
 
     function savePerformance() {
-        var performanceId = document.getElementById('performanceId').value;
-        var employeeId = document.getElementById('perfEmployeeId').value;
-        var year = parseInt(document.getElementById('perfYear').value, 10);
-        var quarter = parseInt(document.getElementById('perfQuarter').value, 10);
-        var scoreText = document.getElementById('perfScore').value;
-        var score = parseFloat(scoreText);
-        var evaluation = document.getElementById('perfEvaluation').value;
-        var status = parseInt(document.getElementById('perfStatus').value, 10);
-
-        if (!performanceId && !employeeId) {
-            alertError('请选择员工');
-            return;
-        }
-        if (isNaN(year) || year < 2000 || year > 2100) {
-            alertError('请填写有效的年份');
-            return;
-        }
-        if (isNaN(quarter) || quarter < 1 || quarter > 4) {
-            alertError('请选择季度');
-            return;
-        }
-        if (isNaN(score) || score < 0 || score > 100) {
-            alertError('评分必须在 0 到 100 之间');
-            return;
-        }
-        if (!evaluation || !evaluation.trim()) {
-            alertError('请填写评价');
-            return;
-        }
-
+        var id = document.getElementById('performanceId').value;
         var payload = {
-            year: year,
-            quarter: quarter,
-            score: score,
-            evaluation: evaluation.trim(),
-            status: isNaN(status) ? 1 : status
+            year: Number(document.getElementById('perfYear').value),
+            quarter: Number(document.getElementById('perfQuarter').value),
+            evaluation: document.getElementById('perfEvaluation').value.trim()
         };
-        if (!performanceId) {
-            payload.employeeId = parseInt(employeeId, 10);
+        try {
+            payload.score = readScore('perfScore', '业绩分');
+            payload.abilityScore = readScore('perfAbility', '能力分');
+            payload.attitudeScore = readScore('perfAttitude', '态度分');
+        } catch (error) {
+            Toast.warning(error.message);
+            return;
         }
-
-        var url = performanceId
-            ? '/api/performances/' + encodeURIComponent(performanceId)
-            : '/api/performances';
-        var method = performanceId ? 'PUT' : 'POST';
-
-        fetch(url, {
-            method: method,
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        })
-            .then(function (response) {
-                return response.json();
-            })
-            .then(function (result) {
-                if (!result || result.code !== 200) {
-                    alertError(result && result.msg ? result.msg : '保存业绩失败');
-                    return;
-                }
-                closeModal();
-                loadPerformances();
-            })
-            .catch(function (error) {
-                console.error('保存业绩出错:', error);
-                alertError('保存业绩失败，请稍后重试');
-            });
-    }
-
-    /* ---------------- 导出 Excel ---------------- */
-
-    function downloadFile(url, fileName) {
-        fetch(url, { credentials: 'same-origin' })
-            .then(function (response) {
-                var type = response.headers.get('Content-Type') || '';
-                if (type.indexOf('spreadsheetml') === -1) {
-                    return response.json().then(function (result) {
-                        alertError(result && result.msg ? result.msg : '导出失败');
-                        throw new Error('EXPORT_FAILED');
-                    });
-                }
-                return response.blob().then(function (blob) {
-                    var link = document.createElement('a');
-                    var objectUrl = URL.createObjectURL(blob);
-                    link.href = objectUrl;
-                    link.download = fileName;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    setTimeout(function () {
-                        URL.revokeObjectURL(objectUrl);
-                    }, 1000);
-                });
-            })
-            .catch(function (error) {
-                if (error && error.message === 'EXPORT_FAILED') {
-                    return;
-                }
-                console.error('导出失败:', error);
-                alertError('导出失败，请稍后重试');
-            });
+        if (!id) {
+            payload.employeeId = Number(document.getElementById('perfEmployeeId').value);
+        }
+        var promise = id ? Api.put('/api/performances/' + id, payload) : Api.post('/api/performances', payload);
+        promise.then(function (saved) {
+            var grade = saved && saved.grade ? saved.grade : '';
+            Toast.success('已保存' + (grade ? '，综合等级 ' + grade : ''));
+            closeModal();
+            loadPerformances();
+        }).catch(function (error) {
+            Toast.error(error.message);
+        });
     }
 
     function exportReport() {
-        var yearInput = document.getElementById('reportYear');
-        var monthSelect = document.getElementById('reportMonth');
-        if (!yearInput || !monthSelect) {
-            return;
-        }
-        var year = parseInt(yearInput.value, 10);
-        var month = parseInt(monthSelect.value, 10);
-        if (isNaN(year) || year < 2000 || year > 2100) {
-            alertError('请填写有效年份（2000-2100）');
-            return;
-        }
-        if (isNaN(month)) {
-            month = currentMonth();
-        }
-        var monthText = month < 10 ? '0' + month : String(month);
-        downloadFile('/api/report/export?year=' + year + '&month=' + month,
-            '工资报告-' + year + '-' + monthText + '.xlsx');
+        var p = period();
+        var fileName = '工资报告-' + p.year + '-' + pad(p.month) + '.xlsx';
+        Toast.info('正在生成 Excel…');
+        Api.download('/api/report/export?year=' + p.year + '&month=' + p.month, fileName)
+            .then(function () {
+                Toast.success('导出成功');
+            })
+            .catch(function (error) {
+                Toast.error(error.message);
+            });
     }
 
-    /* ---------------- 对外暴露 ---------------- */
-
-    window.exportReport = exportReport;
     window.loadPerformances = loadPerformances;
     window.showCreateModal = showCreateModal;
     window.openPerformanceModal = openPerformanceModal;
     window.closeModal = closeModal;
     window.savePerformance = savePerformance;
-})();
+    window.exportReport = exportReport;
+})(window);

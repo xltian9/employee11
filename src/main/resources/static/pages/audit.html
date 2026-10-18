@@ -1,0 +1,73 @@
+<div class="page-head">
+    <div>
+        <h2 class="page-title">审计日志</h2>
+        <p class="page-desc">谁改了谁的工资、谁批了谁的假，都在这里留痕；日志只读不可删改</p>
+    </div>
+    <div class="toolbar">
+        <button class="btn btn-ghost" onclick="resetAuditFilter()">重置筛选</button>
+        <button class="btn" onclick="loadAuditLogs()">查询</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <h3 class="card-title">筛选条件</h3>
+        <span class="hint" id="auditHint">共 0 条</span>
+    </div>
+    <div class="card-body">
+        <div class="grid-4">
+            <div class="field">
+                <label for="auditOperator">操作人</label>
+                <input type="text" id="auditOperator" placeholder="姓名或用户名">
+            </div>
+            <div class="field">
+                <label for="auditAction">动作</label>
+                <select id="auditAction">
+                    <option value="">全部动作</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="auditTargetType">对象类型</label>
+                <select id="auditTargetType">
+                    <option value="">全部类型</option>
+                    <option value="EMPLOYEE">员工</option>
+                    <option value="LEAVE">请假</option>
+                    <option value="PERFORMANCE">绩效</option>
+                    <option value="SALARY">补发扣款</option>
+                    <option value="OVERTIME">加班</option>
+                    <option value="POLICY">工资策略</option>
+                    <option value="ADMIN">管理员</option>
+                    <option value="AUTH">登录</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="auditStartDate">起止日期</label>
+                <div style="display:flex;gap:6px;">
+                    <input type="date" id="auditStartDate">
+                    <input type="date" id="auditEndDate">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:150px;">时间</th>
+                    <th>操作人</th>
+                    <th>动作</th>
+                    <th>对象</th>
+                    <th>明细</th>
+                    <th style="width:120px;">IP</th>
+                </tr>
+            </thead>
+            <tbody id="auditTableBody">
+                <tr class="empty-row"><td colspan="6">正在加载…</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="pager" id="auditPager"></div>
+</div>

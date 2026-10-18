@@ -1,72 +1,87 @@
 package com.limiti.employee.service;
 
+import com.limiti.employee.dto.AttendanceSummaryDTO;
+import com.limiti.employee.dto.SalaryAdjustmentDTO;
 import com.limiti.employee.dto.SalaryReportDTO;
 import com.limiti.employee.entity.Employee;
-import com.limiti.employee.entity.Leave;
 import com.limiti.employee.entity.Performance;
+import com.limiti.employee.entity.SalaryAdjustment;
+import com.limiti.employee.entity.SalaryPolicy;
 import com.limiti.employee.repository.EmployeeRepository;
-import com.limiti.employee.repository.LeaveRepository;
 import com.limiti.employee.repository.PerformanceRepository;
+import com.limiti.employee.repository.SalaryAdjustmentRepository;
 import com.limiti.employee.utils.WorkdayUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 月度工资报告服务
+ * 月度工资报告服务。
  *
- * <p>计算规则：</p>
- * <ul>
- *   <li>当月工作日：{@link WorkdayUtils#getWorkdaysInMonth(int, int)}（排除周末与内置节假日）</li>
- *   <li>请假天数：当月所有“已通过”请假与该月重叠的自然日天数（整段都在本月时用登记的 leaves_day）</li>
- *   <li>奖金：月薪 × 绩效系数，系数由该季度绩效评分决定：
- *       评分 ≥90 → 20%，≥80 → 15%，≥70 → 10%，≥60 → 5%，其余或无业绩记录 → 0</li>
- *   <li>实际工资：月薪 − 月薪÷当月工作日×请假天数 + 奖金（不小于 0，四舍五入保留两位）</li>
- * </ul>
+ * <p>工资构成（全部规则来自 {@link SalaryPolicy}，管理员可配）：</p>
+ * <pre>
+ * 应发 = 月薪 − 请假扣款 − 旷工扣款 − 迟到早退扣款 + 加班费 + 季度奖金 + 补发 − 扣款
+ * 社保 = 月薪 × 社保比例
+ * 公积金 = 月薪 × 公积金比例
+ * 个税 = (应发 − 社保 − 公积金 − 起征点) 套用月度超额累进税率
+ * 实发 = 应发 − 社保 − 公积金 − 个税
+ * </pre>
+ *
+ * <p>请假扣款：事假按规则全额扣；病假按 sickLeaveRate（默认 50%）扣；年假/调休不扣。</p>
  *
  * @author Limiti
  */
+@Slf4j
 @Service
 public class SalaryReportService {
 
-    /** 已通过的请假状态 */
-    private static final int LEAVE_STATUS_APPROVED = 1;
+    /** 季度奖金按月平摊，因此除以 3 */
+    private static final BigDecimal MONTHS_PER_QUARTER = new BigDecimal("3");
+
+    /** 每天标准工时 */
+    private static final BigDecimal HOURS_PER_DAY = new BigDecimal("8");
 
     @Autowired
     private EmployeeRepository employeeRepository;
 
     @Autowired
-    private LeaveRepository leaveRepository;
+    private PerformanceRepository performanceRepository;
 
     @Autowired
-    private PerformanceRepository performanceRepository;
+    private SalaryAdjustmentRepository salaryAdjustmentRepository;
+
+    @Autowired
+    private SalaryPolicyService salaryPolicyService;
+
+    @Autowired
+    private AttendanceStatsService attendanceStatsService;
 
     /**
      * 生成指定年月的工资报告（管理员视图，全部在职员工）
-     *
-     * @param year  年份
-     * @param month 月份（1-12）
-     * @return 员工维度的工资明细，按工号升序
      */
+    @Transactional(readOnly = true)
     public List<SalaryReportDTO> buildReport(int year, int month) {
-        int quarter = quarterOf(month);
-        int workDays = WorkdayUtils.getWorkdaysInMonth(year, month);
-        Map<Long, Integer> leavesByEmployee = leavesInMonth(year, month);
+        SalaryPolicy policy = salaryPolicyService.get();
+        List<Employee> employees = employeeRepository.findByIsDel(false);
+        Map<Long, AttendanceSummaryDTO> stats =
+                attendanceStatsService.buildForEmployees(employees, year, month);
+        Map<Long, List<SalaryAdjustment>> adjustments = adjustmentsInMonth(year, month);
 
         List<SalaryReportDTO> rows = new ArrayList<>();
-        for (Employee employee : employeeRepository.findByIsDel(false)) {
-            rows.add(rowOf(employee, year, month, quarter, workDays, leavesByEmployee));
+        for (Employee employee : employees) {
+            rows.add(rowOf(employee, year, month, policy,
+                    stats.get(employee.getId()), adjustments.get(employee.getId())));
         }
         rows.sort(Comparator.comparing(SalaryReportDTO::getEmployeeNumber,
                 Comparator.nullsLast(Comparator.naturalOrder())));
@@ -74,57 +89,38 @@ public class SalaryReportService {
     }
 
     /**
-     * 生成单个员工指定年月的工资明细（员工自查视图）
-     *
-     * @param employeeId 员工 ID
-     * @param year       年份
-     * @param month      月份（1-12）
-     * @return 工资明细；员工不存在或已离职时返回 null
+     * 单个员工的工资明细（员工自查）
      */
+    @Transactional(readOnly = true)
     public SalaryReportDTO buildEmployeeReport(Long employeeId, int year, int month) {
         Employee employee = employeeRepository.findById(employeeId).orElse(null);
         if (employee == null || Boolean.TRUE.equals(employee.getIsDel())) {
             return null;
         }
-        return rowOf(employee, year, month, quarterOf(month),
-                WorkdayUtils.getWorkdaysInMonth(year, month), leavesInMonth(year, month));
+        SalaryPolicy policy = salaryPolicyService.get();
+        AttendanceSummaryDTO summary = attendanceStatsService.buildForEmployee(employee, year, month);
+        List<SalaryAdjustment> list = salaryAdjustmentRepository
+                .findByEmployeeIdAndYearAndMonth(employeeId, year, month);
+        return rowOf(employee, year, month, policy, summary, groupByEmployee(list).get(employeeId));
     }
 
-    private int quarterOf(int month) {
-        return (month - 1) / 3 + 1;
+    private Map<Long, List<SalaryAdjustment>> adjustmentsInMonth(int year, int month) {
+        return groupByEmployee(salaryAdjustmentRepository.findByYearAndMonth(year, month));
     }
 
-    /**
-     * 统计当月各员工「已通过」的请假天数
-     */
-    private Map<Long, Integer> leavesInMonth(int year, int month) {
-        Map<Long, Integer> result = new HashMap<>();
-        for (Leave leave : leaveRepository.findByStatus(LEAVE_STATUS_APPROVED)) {
-            if (leave.getEmployee() == null || leave.getEmployee().getId() == null) {
-                continue;
-            }
-            int days = overlapDays(leave, year, month);
-            if (days > 0) {
-                result.merge(leave.getEmployee().getId(), days, Integer::sum);
-            }
+    private Map<Long, List<SalaryAdjustment>> groupByEmployee(List<SalaryAdjustment> list) {
+        Map<Long, List<SalaryAdjustment>> result = new HashMap<>();
+        for (SalaryAdjustment adjustment : list) {
+            result.computeIfAbsent(adjustment.getEmployeeId(), key -> new ArrayList<>()).add(adjustment);
         }
         return result;
     }
 
     /**
-     * 组装一名员工在指定年月的工资明细
+     * 组装一名员工的工资明细
      */
-    private SalaryReportDTO rowOf(Employee employee, int year, int month, int quarter,
-                                  int workDays, Map<Long, Integer> leavesByEmployee) {
-        BigDecimal wage = employee.getWage() == null ? BigDecimal.ZERO : employee.getWage();
-        int leavesDay = leavesByEmployee.getOrDefault(employee.getId(), 0);
-
-        Performance performance = performanceRepository
-                .findByEmployee_IdAndYearAndQuarter(employee.getId(), year, quarter)
-                .orElse(null);
-        Double score = performance == null ? null : performance.getScore();
-        BigDecimal bonus = bonusOf(wage, score);
-
+    private SalaryReportDTO rowOf(Employee employee, int year, int month, SalaryPolicy policy,
+                                  AttendanceSummaryDTO summary, List<SalaryAdjustment> adjustments) {
         SalaryReportDTO row = new SalaryReportDTO();
         row.setEmployeeId(employee.getId());
         row.setEmployeeNumber(employee.getEmployeeNumber());
@@ -133,91 +129,221 @@ public class SalaryReportService {
         row.setPosition(employee.getPosition());
         row.setYearNum(year);
         row.setMonthNum(month);
+
+        BigDecimal wage = employee.getWage() == null ? BigDecimal.ZERO : employee.getWage();
+        int workDays = summary == null || summary.getWorkDays() == null
+                ? WorkdayUtils.getWorkdaysInMonth(year, month) : summary.getWorkDays();
         row.setWorkDay(workDays);
-        row.setWage(wage.setScale(2, RoundingMode.HALF_UP));
-        row.setLeavesDay(leavesDay);
-        row.setPerformanceScore(score);
-        row.setPerformanceId(performance == null ? null : performance.getId());
+        row.setWage(scale(wage));
+
+        int casualDays = summary == null ? 0 : zero(summary.getCasualLeaveDays());
+        int sickDays = summary == null ? 0 : zero(summary.getSickLeaveDays());
+        int otherDays = summary == null ? 0 : zero(summary.getOtherLeaveDays());
+        int lateCount = summary == null ? 0 : zero(summary.getLateCount());
+        int earlyCount = summary == null ? 0 : zero(summary.getEarlyCount());
+        int absentDays = summary == null ? 0 : zero(summary.getAbsentDays());
+
+        row.setLeaveDays(casualDays + sickDays + otherDays);
+        row.setCasualLeaveDays(casualDays);
+        row.setSickLeaveDays(sickDays);
+        row.setOtherLeaveDays(otherDays);
+        row.setLateCount(lateCount);
+        row.setEarlyCount(earlyCount);
+        row.setAbsentDays(absentDays);
+        row.setActualDays(summary == null ? 0 : zero(summary.getActualDays()));
+
+        BigDecimal dailyWage = workDays > 0
+                ? wage.divide(BigDecimal.valueOf(workDays), 6, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        BigDecimal hourlyWage = workDays > 0
+                ? wage.divide(BigDecimal.valueOf(workDays).multiply(HOURS_PER_DAY), 6, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        // 请假扣款：事假全额、病假按比例、年假调休不扣
+        BigDecimal leaveDeduct = leaveDeductOf(policy, dailyWage, casualDays, sickDays);
+        // 旷工扣款：旷工天数 × 日工资 × 折算倍数
+        BigDecimal absentDeduct = scale(dailyWage
+                .multiply(BigDecimal.valueOf(absentDays))
+                .multiply(nullSafe(policy.getAbsentDeductDays(), BigDecimal.ONE)));
+        // 迟到早退扣款：每次固定金额
+        BigDecimal lateDeduct = scale(nullSafe(policy.getLateDeductAmount(), BigDecimal.ZERO)
+                .multiply(BigDecimal.valueOf((long) lateCount + earlyCount)));
+
+        BigDecimal weekdayHours = summary == null ? BigDecimal.ZERO : nullSafe(summary.getOvertimeWeekdayHours(), BigDecimal.ZERO);
+        BigDecimal weekendHours = summary == null ? BigDecimal.ZERO : nullSafe(summary.getOvertimeWeekendHours(), BigDecimal.ZERO);
+        BigDecimal holidayHours = summary == null ? BigDecimal.ZERO : nullSafe(summary.getOvertimeHolidayHours(), BigDecimal.ZERO);
+        row.setOvertimeWeekdayHours(weekdayHours);
+        row.setOvertimeWeekendHours(weekendHours);
+        row.setOvertimeHolidayHours(holidayHours);
+        BigDecimal overtimePay = scale(hourlyWage.multiply(
+                weekdayHours.multiply(nullSafe(policy.getOvertimeWeekdayRate(), BigDecimal.ONE))
+                        .add(weekendHours.multiply(nullSafe(policy.getOvertimeWeekendRate(), BigDecimal.ONE)))
+                        .add(holidayHours.multiply(nullSafe(policy.getOvertimeHolidayRate(), BigDecimal.ONE)))));
+
+        // 绩效：按季度评定，奖金 = 月薪 × 等级系数 ÷ 3，平摊到季度内每个月
+        int quarter = quarterOf(month);
+        Performance performance = performanceRepository
+                .findByEmployee_IdAndYearAndQuarter(employee.getId(), year, quarter)
+                .orElse(null);
+        Double finalScore = null;
+        String grade = null;
+        BigDecimal bonus = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        if (performance != null) {
+            // 出勤扣分按整个季度统计，保证审批/撤销后立刻反映到绩效与奖金
+            AttendanceSummaryDTO quarterSummary =
+                    attendanceStatsService.forQuarter(employee, year, quarter);
+            finalScore = PerformanceService.finalScore(
+                    performance.getScore(), performance.getAbilityScore(), performance.getAttitudeScore(),
+                    PerformanceService.attendancePenalty(quarterSummary));
+            grade = PerformanceService.gradeOf(finalScore);
+            BigDecimal rate = PerformanceService.bonusRateOf(grade, policy);
+            bonus = scale(wage.multiply(rate).divide(MONTHS_PER_QUARTER, 6, RoundingMode.HALF_UP));
+            row.setPerformanceId(performance.getId());
+        }
+        row.setPerformanceScore(finalScore);
+        row.setPerformanceGrade(grade);
         row.setBonus(bonus);
-        row.setNowWage(nowWageOf(wage, workDays, leavesDay, bonus));
+
+        BigDecimal adjustAdd = BigDecimal.ZERO;
+        BigDecimal adjustDeduct = BigDecimal.ZERO;
+        if (adjustments != null) {
+            for (SalaryAdjustment adjustment : adjustments) {
+                BigDecimal amount = nullSafe(adjustment.getAmount(), BigDecimal.ZERO);
+                if (Integer.valueOf(SalaryAdjustment.TYPE_ADD).equals(adjustment.getType())) {
+                    adjustAdd = adjustAdd.add(amount);
+                } else {
+                    adjustDeduct = adjustDeduct.add(amount);
+                }
+                row.getAdjustments().add(toAdjustmentDto(adjustment));
+            }
+        }
+        row.setAdjustAdd(scale(adjustAdd));
+        row.setAdjustDeduct(scale(adjustDeduct));
+
+        BigDecimal gross = wage
+                .subtract(leaveDeduct)
+                .subtract(absentDeduct)
+                .subtract(lateDeduct)
+                .add(overtimePay)
+                .add(bonus)
+                .add(adjustAdd)
+                .subtract(adjustDeduct);
+        if (gross.signum() < 0) {
+            gross = BigDecimal.ZERO;
+        }
+        gross = scale(gross);
+
+        BigDecimal socialInsurance = scale(wage.multiply(nullSafe(policy.getSocialInsuranceRate(), BigDecimal.ZERO)));
+        BigDecimal housingFund = scale(wage.multiply(nullSafe(policy.getHousingFundRate(), BigDecimal.ZERO)));
+        BigDecimal tax = calcTax(gross.subtract(socialInsurance).subtract(housingFund),
+                nullSafe(policy.getTaxThreshold(), new BigDecimal("5000")));
+
+        BigDecimal net = gross.subtract(socialInsurance).subtract(housingFund).subtract(tax);
+        if (net.signum() < 0) {
+            net = BigDecimal.ZERO;
+        }
+        net = scale(net);
+
+        row.setLeaveDeduct(leaveDeduct);
+        row.setAbsentDeduct(absentDeduct);
+        row.setLateDeduct(lateDeduct);
+        row.setOvertimePay(overtimePay);
+        row.setSocialInsurance(socialInsurance);
+        row.setHousingFund(housingFund);
+        row.setTax(tax);
+        row.setGrossPay(gross);
+        row.setNetPay(net);
+        row.setNowWage(net);
         return row;
     }
 
     /**
-     * 按绩效评分换算奖金比例
+     * 请假扣款：事假全额 + 病假 × 比例
      */
-    private BigDecimal bonusRate(Double score) {
-        if (score == null) {
-            return BigDecimal.ZERO;
+    private BigDecimal leaveDeductOf(SalaryPolicy policy, BigDecimal dailyWage, int casualDays, int sickDays) {
+        BigDecimal sickRate = nullSafe(policy.getSickLeaveRate(), BigDecimal.ZERO);
+        if (policy.getLeaveDeductMode() != null && policy.getLeaveDeductMode() == 1) {
+            BigDecimal perDay = nullSafe(policy.getLeaveDeductAmount(), BigDecimal.ZERO);
+            return scale(perDay.multiply(BigDecimal.valueOf(casualDays))
+                    .add(perDay.multiply(BigDecimal.valueOf(sickDays)).multiply(sickRate)));
         }
-        if (score >= 90) {
-            return new BigDecimal("0.20");
-        }
-        if (score >= 80) {
-            return new BigDecimal("0.15");
-        }
-        if (score >= 70) {
-            return new BigDecimal("0.10");
-        }
-        if (score >= 60) {
-            return new BigDecimal("0.05");
-        }
-        return BigDecimal.ZERO;
+        return scale(dailyWage.multiply(BigDecimal.valueOf(casualDays))
+                .add(dailyWage.multiply(BigDecimal.valueOf(sickDays)).multiply(sickRate)));
     }
 
     /**
-     * 奖金 = 月薪 × 绩效系数
+     * 月度个税：超额累进，用速算扣除数实现
      */
-    private BigDecimal bonusOf(BigDecimal wage, Double score) {
-        BigDecimal rate = bonusRate(score);
-        if (rate.signum() == 0) {
+    private BigDecimal calcTax(BigDecimal taxableBeforeThreshold, BigDecimal threshold) {
+        BigDecimal taxable = taxableBeforeThreshold.subtract(threshold);
+        if (taxable.signum() <= 0) {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
-        return wage.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+        double amount = taxable.doubleValue();
+        double rate;
+        double quickDeduction;
+        if (amount <= 3000) {
+            rate = 0.03;
+            quickDeduction = 0;
+        } else if (amount <= 12000) {
+            rate = 0.10;
+            quickDeduction = 210;
+        } else if (amount <= 25000) {
+            rate = 0.20;
+            quickDeduction = 1410;
+        } else if (amount <= 35000) {
+            rate = 0.25;
+            quickDeduction = 2660;
+        } else if (amount <= 55000) {
+            rate = 0.30;
+            quickDeduction = 4410;
+        } else if (amount <= 80000) {
+            rate = 0.35;
+            quickDeduction = 7160;
+        } else {
+            rate = 0.45;
+            quickDeduction = 15160;
+        }
+        double tax = amount * rate - quickDeduction;
+        if (tax < 0) {
+            tax = 0;
+        }
+        return BigDecimal.valueOf(tax).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private SalaryAdjustmentDTO toAdjustmentDto(SalaryAdjustment adjustment) {
+        SalaryAdjustmentDTO dto = new SalaryAdjustmentDTO();
+        dto.setId(adjustment.getId());
+        dto.setType(adjustment.getType());
+        dto.setTypeName(Integer.valueOf(SalaryAdjustment.TYPE_ADD).equals(adjustment.getType()) ? "补发" : "扣款");
+        dto.setAmount(adjustment.getAmount());
+        dto.setReason(adjustment.getReason());
+        dto.setOperatorName(adjustment.getOperatorName());
+        dto.setCreateTime(adjustment.getCreateTime() == null
+                ? null : new SimpleDateFormat("yyyy-MM-dd HH:mm").format(adjustment.getCreateTime()));
+        return dto;
+    }
+
+    private int quarterOf(int month) {
+        return (month - 1) / 3 + 1;
+    }
+
+    private int zero(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private BigDecimal nullSafe(BigDecimal value, BigDecimal fallback) {
+        return value == null ? fallback : value;
+    }
+
+    private BigDecimal scale(BigDecimal value) {
+        return value.setScale(2, RoundingMode.HALF_UP);
     }
 
     /**
-     * 实际工资 = 月薪 − 月薪÷工作日×请假天数 + 奖金
+     * 当月工作日日期（供导出/调试使用）
      */
-    private BigDecimal nowWageOf(BigDecimal wage, int workDays, int leavesDay, BigDecimal bonus) {
-        BigDecimal daily = workDays > 0
-                ? wage.divide(BigDecimal.valueOf(workDays), 6, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
-        BigDecimal deduction = daily.multiply(BigDecimal.valueOf(leavesDay));
-        BigDecimal nowWage = wage.subtract(deduction).add(bonus);
-        if (nowWage.signum() < 0) {
-            nowWage = BigDecimal.ZERO;
-        }
-        return nowWage.setScale(2, RoundingMode.HALF_UP);
-    }
-
-    /**
-     * 请假记录与指定年月重叠的自然日天数
-     */
-    private int overlapDays(Leave leave, int year, int month) {
-        LocalDate start = toLocalDate(leave.getStartTime());
-        LocalDate end = toLocalDate(leave.getEndTime());
-        if (start == null || end == null || end.isBefore(start)) {
-            return 0;
-        }
-        LocalDate first = LocalDate.of(year, month, 1);
-        LocalDate last = first.withDayOfMonth(first.lengthOfMonth());
-        LocalDate from = start.isBefore(first) ? first : start;
-        LocalDate to = end.isAfter(last) ? last : end;
-        if (from.isAfter(to)) {
-            return 0;
-        }
-        boolean wholeInMonth = !start.isBefore(first) && !end.isAfter(last);
-        if (wholeInMonth && leave.getLeavesDay() != null && leave.getLeavesDay() > 0) {
-            return leave.getLeavesDay();
-        }
-        return (int) ChronoUnit.DAYS.between(from, to) + 1;
-    }
-
-    private LocalDate toLocalDate(Date date) {
-        if (date == null) {
-            return null;
-        }
-        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+    public List<LocalDate> workdaysOf(int year, int month) {
+        return WorkdayUtils.getWorkdayDates(year, month);
     }
 }

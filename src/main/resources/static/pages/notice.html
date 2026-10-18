@@ -1,126 +1,62 @@
+<div class="page-head">
+    <div>
+        <h2 class="page-title">公告管理</h2>
+        <p class="page-desc">草稿可编辑，发布后员工端才能看到，撤回后重新变回草稿状态</p>
+    </div>
+    <div class="toolbar">
+        <input type="text" id="noticeKeyword" placeholder="搜索标题或内容…"
+               style="width:200px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+        <button class="btn btn-ghost" onclick="searchNotices()">搜索</button>
+        <button class="btn" onclick="showNoticeModal()">新建公告</button>
+    </div>
+</div>
+
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">公告管理</h5>
-        <button class="btn btn-primary" onclick="showAddNoticeModal()">发布公告</button>
+    <div class="card-head">
+        <h3 class="card-title">公告列表</h3>
+        <span class="hint" id="noticeHint">共 0 条</span>
     </div>
-    <div class="card-body">
-        <!-- 搜索栏和筛选按钮 -->
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <div class="input-group">
-                    <input type="text" class="form-control" id="searchKeyword" placeholder="搜索公告...">
-                    <button class="btn btn-secondary" onclick="searchNotices()">搜索</button>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-outline-primary" onclick="loadAllNotices()">全部</button>
-                    <button type="button" class="btn btn-outline-success" onclick="loadPublishedNotices()">已发布</button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="loadDraftNotices()">未发布</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 公告列表 -->
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>标题</th>
-                        <th>发布人</th>
-                        <th>发布时间</th>
-                        <th>状态</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="noticeTableBody">
-                    <!-- 动态加载的公告列表 -->
-                </tbody>
-            </table>
-        </div>
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:60px;">#</th>
+                    <th>标题</th>
+                    <th>内容摘要</th>
+                    <th>发布人</th>
+                    <th>状态</th>
+                    <th>发布时间</th>
+                    <th>创建时间</th>
+                    <th style="width:190px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="noticeTableBody">
+                <tr class="empty-row"><td colspan="8">正在加载…</td></tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
-<!-- 添加/编辑公告模态框 -->
-<div class="modal fade" id="noticeModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="noticeModalTitle">发布公告</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="modal-mask" id="noticeModal" hidden>
+    <div class="modal-panel">
+        <div class="modal-head">
+            <span id="noticeModalTitle">新建公告</span>
+            <button class="modal-close" onclick="hideNoticeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="noticeId">
+            <div class="field">
+                <label for="noticeTitle">标题</label>
+                <input type="text" id="noticeTitle" placeholder="例如：关于 10 月社保基数调整的通知">
             </div>
-            <div class="modal-body">
-                <form id="noticeForm">
-                    <input type="hidden" id="noticeId">
-                    <div class="mb-3">
-                        <label class="form-label">标题</label>
-                        <input type="text" class="form-control" id="noticeTitle" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">内容</label>
-                        <textarea class="form-control" id="noticeContent" rows="5" required></textarea>
-                    </div>
-                </form>
+            <div class="field">
+                <label for="noticeContent">内容</label>
+                <textarea id="noticeContent" rows="7" placeholder="公告正文…"></textarea>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="saveNotice()">保存</button>
-            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-ghost" onclick="hideNoticeModal()">取消</button>
+            <button class="btn" onclick="saveNotice()">保存草稿</button>
         </div>
     </div>
 </div>
-
-<!-- 查看公告模态框 -->
-<div class="modal fade" id="viewNoticeModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="viewNoticeTitle"></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="viewNoticeContent" style="white-space: pre-wrap;"></div>
-                <hr>
-                <div class="text-muted">
-                    <small>
-                        发布人：<span id="viewNoticePublisher"></span><br>
-                        发布时间：<span id="viewNoticeTime"></span>
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 错误提示模态框 -->
-<div class="modal fade" id="errorModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">错误提示</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p id="errorMessage"></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 成功提示模态框 -->
-<div class="modal fade" id="successModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">提示</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p id="successMessage"></p>
-            </div>
-        </div>
-    </div>
-</div> 

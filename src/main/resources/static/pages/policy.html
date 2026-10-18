@@ -1,0 +1,138 @@
+<div class="page-head">
+    <div>
+        <h2 class="page-title">工资策略</h2>
+        <p class="page-desc">这里的参数直接决定考勤判定与工资计算，修改后会写入审计日志</p>
+    </div>
+    <div class="toolbar">
+        <span class="hint" id="policyUpdatedAt"></span>
+        <button class="btn btn-ghost" onclick="loadSalaryPolicy()">重新加载</button>
+        <button class="btn" onclick="saveSalaryPolicy()">保存策略</button>
+    </div>
+</div>
+
+<div class="split">
+    <div class="card">
+        <div class="card-head">
+            <h3 class="card-title">请假与考勤</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid-2">
+                <div class="field">
+                    <label for="policyWorkStart">上班时间</label>
+                    <input type="time" id="policyWorkStart">
+                </div>
+                <div class="field">
+                    <label for="policyWorkEnd">下班时间</label>
+                    <input type="time" id="policyWorkEnd">
+                </div>
+            </div>
+            <div class="field">
+                <label for="policyLeaveDeductMode">请假扣款方式</label>
+                <select id="policyLeaveDeductMode">
+                    <option value="0">按日工资扣（月薪 ÷ 工作日 × 天数）</option>
+                    <option value="1">按固定金额扣（每天固定金额）</option>
+                </select>
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="policyLeaveDeductAmount">固定扣款金额（元/天）</label>
+                    <input type="number" id="policyLeaveDeductAmount" min="0" step="0.01">
+                </div>
+                <div class="field">
+                    <label for="policySickLeaveRate">病假扣款比例</label>
+                    <input type="number" id="policySickLeaveRate" min="0" max="1" step="0.01">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="policyAbsentDeductDays">旷工折算天数（倍数）</label>
+                    <input type="number" id="policyAbsentDeductDays" min="0.1" step="0.1">
+                </div>
+                <div class="field">
+                    <label for="policyLateDeductAmount">迟到/早退扣款（元/次）</label>
+                    <input type="number" id="policyLateDeductAmount" min="0" step="0.01">
+                </div>
+            </div>
+            <p class="hint">事假按全额扣，病假按比例扣，年假与调休不扣款；旷工扣款 = 日工资 × 折算天数。</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <h3 class="card-title">加班费率</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid-3">
+                <div class="field">
+                    <label for="policyOvertimeWeekdayRate">工作日（倍）</label>
+                    <input type="number" id="policyOvertimeWeekdayRate" min="0.1" step="0.1">
+                </div>
+                <div class="field">
+                    <label for="policyOvertimeWeekendRate">周末（倍）</label>
+                    <input type="number" id="policyOvertimeWeekendRate" min="0.1" step="0.1">
+                </div>
+                <div class="field">
+                    <label for="policyOvertimeHolidayRate">节假日（倍）</label>
+                    <input type="number" id="policyOvertimeHolidayRate" min="0.1" step="0.1">
+                </div>
+            </div>
+            <p class="hint">加班费 = 月薪 ÷ 当月工作日 ÷ 8 × 小时数 × 倍率。</p>
+        </div>
+    </div>
+</div>
+
+<div class="split">
+    <div class="card">
+        <div class="card-head">
+            <h3 class="card-title">社保、公积金与个税</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid-3">
+                <div class="field">
+                    <label for="policySocialInsuranceRate">社保个人比例</label>
+                    <input type="number" id="policySocialInsuranceRate" min="0" max="1" step="0.0001">
+                </div>
+                <div class="field">
+                    <label for="policyHousingFundRate">公积金个人比例</label>
+                    <input type="number" id="policyHousingFundRate" min="0" max="1" step="0.0001">
+                </div>
+                <div class="field">
+                    <label for="policyTaxThreshold">个税起征点（元）</label>
+                    <input type="number" id="policyTaxThreshold" min="0" step="0.01">
+                </div>
+            </div>
+            <p class="hint">个税按月度七级超额累进税率与速算扣除数计算；社保、公积金以月薪为基数。</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <h3 class="card-title">绩效奖金系数</h3>
+        </div>
+        <div class="card-body">
+            <div class="grid-5">
+                <div class="field">
+                    <label for="policyBonusRateS">S（≥90）</label>
+                    <input type="number" id="policyBonusRateS" min="0" max="1" step="0.01">
+                </div>
+                <div class="field">
+                    <label for="policyBonusRateA">A（≥80）</label>
+                    <input type="number" id="policyBonusRateA" min="0" max="1" step="0.01">
+                </div>
+                <div class="field">
+                    <label for="policyBonusRateB">B（≥70）</label>
+                    <input type="number" id="policyBonusRateB" min="0" max="1" step="0.01">
+                </div>
+                <div class="field">
+                    <label for="policyBonusRateC">C（≥60）</label>
+                    <input type="number" id="policyBonusRateC" min="0" max="1" step="0.01">
+                </div>
+                <div class="field">
+                    <label for="policyBonusRateD">D（&lt;60）</label>
+                    <input type="number" id="policyBonusRateD" min="0" max="1" step="0.01">
+                </div>
+            </div>
+            <p class="hint">月度奖金 = 月薪 × 系数 ÷ 3；季度奖金按等级一次计算、分三个月平摊发放。</p>
+        </div>
+    </div>
+</div>

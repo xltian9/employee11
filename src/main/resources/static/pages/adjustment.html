@@ -1,0 +1,144 @@
+<div class="page-head">
+    <div>
+        <h2 class="page-title">补发与扣款</h2>
+        <p class="page-desc">这里的记录会直接计入当月工资的「补发 / 扣款」，并写入审计日志</p>
+    </div>
+    <div class="toolbar">
+        <label for="adjustYear" style="font-size:13px;color:#475569;">年月</label>
+        <input type="number" id="adjustYear" min="2000" max="2100" value="2026"
+               style="width:96px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+        <select id="adjustMonth"
+                style="width:100px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;"></select>
+        <button class="btn btn-ghost" onclick="loadAdjustments()">查询</button>
+        <button class="btn" onclick="showAdjustmentModal()">新增记录</button>
+    </div>
+</div>
+
+<div class="split">
+    <div class="card">
+        <div class="card-head">
+            <h3 class="card-title">补发 / 扣款记录</h3>
+            <span class="hint" id="adjustHint">共 0 条</span>
+        </div>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>员工</th>
+                        <th>类型</th>
+                        <th class="num">金额</th>
+                        <th>原因</th>
+                        <th>操作人</th>
+                        <th>创建时间</th>
+                        <th style="width:70px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="adjustmentTableBody">
+                    <tr class="empty-row"><td colspan="7">正在加载…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <h3 class="card-title">加班记录</h3>
+            <button class="btn btn-ghost btn-sm" onclick="showOvertimeModal()">新增加班</button>
+        </div>
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>员工</th>
+                        <th>日期</th>
+                        <th>类型</th>
+                        <th class="num">小时</th>
+                        <th>原因</th>
+                        <th style="width:70px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="overtimeTableBody">
+                    <tr class="empty-row"><td colspan="6">正在加载…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-mask" id="adjustmentModal" hidden>
+    <div class="modal-panel">
+        <div class="modal-head">
+            <span>新增补发 / 扣款</span>
+            <button class="modal-close" onclick="hideAdjustmentModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="field">
+                <label for="adjustEmployeeId">员工</label>
+                <select id="adjustEmployeeId"></select>
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="adjustType">类型</label>
+                    <select id="adjustType">
+                        <option value="1">补发</option>
+                        <option value="2">扣款</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="adjustAmount">金额（元）</label>
+                    <input type="number" id="adjustAmount" min="0" step="0.01" placeholder="例如 500">
+                </div>
+            </div>
+            <div class="field">
+                <label for="adjustReason">原因</label>
+                <input type="text" id="adjustReason" placeholder="例如：项目奖金、设备损坏赔偿">
+            </div>
+            <p class="hint">金额始终填正数，类型决定是加还是减。</p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-ghost" onclick="hideAdjustmentModal()">取消</button>
+            <button class="btn" onclick="saveAdjustment()">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-mask" id="overtimeModal" hidden>
+    <div class="modal-panel">
+        <div class="modal-head">
+            <span>新增加班</span>
+            <button class="modal-close" onclick="hideOvertimeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="field">
+                <label for="overtimeEmployeeId">员工</label>
+                <select id="overtimeEmployeeId"></select>
+            </div>
+            <div class="grid-3">
+                <div class="field">
+                    <label for="overtimeDate">日期</label>
+                    <input type="date" id="overtimeDate">
+                </div>
+                <div class="field">
+                    <label for="overtimeType">类型</label>
+                    <select id="overtimeType">
+                        <option value="1">工作日</option>
+                        <option value="2">周末</option>
+                        <option value="3">节假日</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="overtimeHours">小时数</label>
+                    <input type="number" id="overtimeHours" min="0.5" max="24" step="0.5" placeholder="例如 4">
+                </div>
+            </div>
+            <div class="field">
+                <label for="overtimeReason">原因</label>
+                <input type="text" id="overtimeReason" placeholder="例如：版本上线支持">
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-ghost" onclick="hideOvertimeModal()">取消</button>
+            <button class="btn" onclick="saveOvertime()">保存</button>
+        </div>
+    </div>
+</div>

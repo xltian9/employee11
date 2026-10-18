@@ -2,11 +2,11 @@ package com.limiti.employee.controller;
 
 import com.limiti.employee.common.Result;
 import com.limiti.employee.entity.Department;
+import com.limiti.employee.exception.BusinessException;
 import com.limiti.employee.security.SessionUser;
 import com.limiti.employee.service.DepartmentService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,10 +15,12 @@ import java.util.List;
 
 /**
  * 部门管理控制器
+ *
+ * <p>异常统一抛给全局处理器，不再逐个方法 try/catch。</p>
+ *
  * @author Limiti
  * @date 2024/11/15
  */
-@Slf4j
 @RestController
 @RequestMapping("/api/departments")
 @Api(tags = "部门管理接口")
@@ -33,14 +35,7 @@ public class DepartmentController {
     @GetMapping
     @ApiOperation("获取所有部门")
     public Result<List<Department>> getAllDepartments() {
-        try {
-            log.info("获取所有部门");
-            List<Department> departments = departmentService.findAll();
-            return Result.success(departments);
-        } catch (Exception e) {
-            log.error("获取部门列表失败", e);
-            return Result.error("获取部门列表失败：" + e.getMessage());
-        }
+        return Result.success(departmentService.findAll());
     }
 
     /**
@@ -50,17 +45,8 @@ public class DepartmentController {
     @ApiOperation("创建部门")
     public Result<Department> createDepartment(@RequestBody Department department,
                                                HttpServletRequest request) {
-        if (!SessionUser.isAdmin(request)) {
-            return Result.error(403, "只有管理员才能创建部门");
-        }
-        try {
-            log.info("创建部门: {}", department.getName());
-            Department created = departmentService.save(department);
-            return Result.success(created);
-        } catch (Exception e) {
-            log.error("创建部门失败", e);
-            return Result.error("创建部门失败：" + e.getMessage());
-        }
+        SessionUser.requireAdmin(request);
+        return Result.success("创建成功", departmentService.save(department));
     }
 
     /**
@@ -72,17 +58,8 @@ public class DepartmentController {
             @PathVariable Long id,
             @RequestBody Department department,
             HttpServletRequest request) {
-        if (!SessionUser.isAdmin(request)) {
-            return Result.error(403, "只有管理员才能修改部门");
-        }
-        try {
-            log.info("更新部门, id: {}", id);
-            Department updated = departmentService.update(id, department);
-            return Result.success(updated);
-        } catch (Exception e) {
-            log.error("更新部门失败", e);
-            return Result.error("更新部门失败：" + e.getMessage());
-        }
+        SessionUser.requireAdmin(request);
+        return Result.success("修改成功", departmentService.update(id, department));
     }
 
     /**
@@ -91,17 +68,9 @@ public class DepartmentController {
     @DeleteMapping("/{id}")
     @ApiOperation("删除部门")
     public Result<Void> deleteDepartment(@PathVariable Long id, HttpServletRequest request) {
-        if (!SessionUser.isAdmin(request)) {
-            return Result.error(403, "只有管理员才能删除部门");
-        }
-        try {
-            log.info("删除部门, id: {}", id);
-            departmentService.delete(id);
-            return Result.success(null);
-        } catch (Exception e) {
-            log.error("删除部门失败", e);
-            return Result.error("删除部门失败：" + e.getMessage());
-        }
+        SessionUser.requireAdmin(request);
+        departmentService.delete(id);
+        return Result.success("删除成功", null);
     }
 
     /**
@@ -110,14 +79,7 @@ public class DepartmentController {
     @GetMapping("/search")
     @ApiOperation("搜索部门")
     public Result<List<Department>> searchDepartments(@RequestParam String keyword) {
-        try {
-            log.info("搜索部门, keyword: {}", keyword);
-            List<Department> departments = departmentService.searchDepartments(keyword);
-            return Result.success(departments);
-        } catch (Exception e) {
-            log.error("搜索部门失败", e);
-            return Result.error("搜索部门失败：" + e.getMessage());
-        }
+        return Result.success(departmentService.searchDepartments(keyword));
     }
 
     /**
@@ -126,13 +88,10 @@ public class DepartmentController {
     @GetMapping("/{id}")
     @ApiOperation("根据ID获取部门")
     public Result<Department> getDepartment(@PathVariable Long id) {
-        try {
-            log.info("获取部门信息, id: {}", id);
-            Department department = departmentService.findById(id);
-            return Result.success(department);
-        } catch (Exception e) {
-            log.error("获取部门信息失败", e);
-            return Result.error("获取部门信息失败：" + e.getMessage());
+        Department department = departmentService.findById(id);
+        if (department == null) {
+            throw BusinessException.notFound("部门不存在");
         }
+        return Result.success(department);
     }
 }

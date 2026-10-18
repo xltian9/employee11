@@ -1,7 +1,7 @@
 package com.limiti.employee.service;
 
+import com.limiti.employee.dto.SalaryAdjustmentDTO;
 import com.limiti.employee.dto.SalaryReportDTO;
-import com.limiti.employee.entity.Employee;
 import com.limiti.employee.entity.Performance;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -25,7 +25,10 @@ import java.text.SimpleDateFormat;
 import java.util.List;
 
 /**
- * 工资报告 / 业绩明细导出为 Excel（.xlsx）
+ * 工资报告 Excel 导出。
+ *
+ * <p>第一个 sheet 是工资明细（含考勤、绩效、加减项、社保公积金个税），
+ * 全员导出时第二个 sheet 追加业绩明细；合计行用 SUM 公式，改数据后自动重算。</p>
  *
  * @author Limiti
  */
@@ -33,309 +36,358 @@ import java.util.List;
 public class SalaryExcelExporter {
 
     private static final String[] SALARY_HEADERS = {
-            "员工 ID", "员工姓名", "员工部门", "员工岗位", "年份", "月份",
-            "当月工作日", "月薪", "当月请假天数", "季度绩效评分", "奖金", "实际工资"
+            "员工ID", "工号", "姓名", "部门", "岗位", "年份", "月份",
+            "工作日", "出勤", "迟到", "早退", "旷工", "事假", "病假", "其他假",
+            "工作日加班(h)", "周末加班(h)", "节假日加班(h)", "加班费",
+            "月薪", "请假扣款", "旷工扣款", "迟到扣款",
+            "绩效得分", "绩效等级", "奖金",
+            "补发", "扣款", "应发", "社保", "公积金", "个税", "实发"
+    };
+
+    private static final int[] SALARY_WIDTHS = {
+            8, 12, 10, 12, 12, 7, 6,
+            7, 7, 6, 6, 6, 6, 6, 7,
+            12, 11, 12, 11,
+            11, 11, 11, 11,
+            10, 9, 11,
+            10, 10, 11, 10, 10, 10, 12
+    };
+
+    /** 需要求和的金额类列（0 基） */
+    private static final int[] MONEY_COLUMNS = {
+            18, 19, 20, 21, 22, 25, 26, 27, 28, 29, 30, 31, 32
     };
 
     private static final String[] PERFORMANCE_HEADERS = {
-            "员工 ID", "员工姓名", "员工部门", "年份", "季度", "绩效评分", "绩效评价", "录入人", "录入时间"
+            "工号", "姓名", "年份", "季度", "业绩分", "能力分", "态度分",
+            "综合得分", "等级", "评价", "录入时间"
     };
 
-    /**
-     * 生成工资报告工作簿
-     *
-     * @param rows         工资明细
-     * @param performances 统计季度内的业绩记录
-     * @param year         年份
-     * @param month        月份
-     * @param single       是否单人视图（员工自查导出的标题不同）
-     * @return xlsx 字节
-     */
-    public byte[] export(List<SalaryReportDTO> rows, List<Performance> performances,
-                         int year, int month, boolean single) throws IOException {
-        try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream(16 * 1024)) {
+    private static final int[] PERFORMANCE_WIDTHS = {12, 10, 7, 6, 9, 9, 9, 10, 7, 40, 18};
 
-            Styles styles = new Styles(workbook);
-            writeSalarySheet(workbook, styles, rows, year, month, single);
-            if (!single) {
-                writePerformanceSheet(workbook, styles, performances, year);
+    public byte[] export(List<SalaryReportDTO> rows, List<Performance> performances,
+                         int year, int month, boolean single) {
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            writeSalarySheet(workbook, rows, year, month);
+            if (!single && performances != null && !performances.isEmpty()) {
+                writePerformanceSheet(workbook, performances);
+            }
+            if (hasAdjustments(rows)) {
+                writeAdjustmentSheet(workbook, rows);
             }
             workbook.write(out);
             return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("生成 Excel 失败：" + e.getMessage(), e);
         }
     }
 
-    private void writeSalarySheet(Workbook workbook, Styles styles, List<SalaryReportDTO> rows,
-                                  int year, int month, boolean single) {
+    private void writeSalarySheet(Workbook workbook, List<SalaryReportDTO> rows, int year, int month) {
         Sheet sheet = workbook.createSheet("工资报告");
-        String title = single
-                ? (year + " 年 " + month + " 月个人工资明细")
-                : (year + " 年 " + month + " 月工资报告");
+        CellStyle titleStyle = titleStyle(workbook);
+        CellStyle headerStyle = headerStyle(workbook);
+        CellStyle textStyle = textStyle(workbook);
+        CellStyle intStyle = intStyle(workbook);
+        CellStyle scoreStyle = scoreStyle(workbook);
+        CellStyle moneyStyle = moneyStyle(workbook);
 
         Row titleRow = sheet.createRow(0);
+        titleRow.setHeightInPoints(26);
         Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue(title);
-        titleCell.setCellStyle(styles.title);
+        titleCell.setCellValue(String.format("%d 年 %d 月 工资报告", year, month));
+        titleCell.setCellStyle(titleStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, SALARY_HEADERS.length - 1));
-        titleRow.setHeightInPoints(24);
 
         Row headerRow = sheet.createRow(1);
+        headerRow.setHeightInPoints(22);
         for (int i = 0; i < SALARY_HEADERS.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(SALARY_HEADERS[i]);
-            cell.setCellStyle(styles.header);
+            cell.setCellStyle(headerStyle);
+            sheet.setColumnWidth(i, SALARY_WIDTHS[i] * 256);
         }
-        headerRow.setHeightInPoints(20);
-
-        BigDecimal wageSum = BigDecimal.ZERO;
-        BigDecimal bonusSum = BigDecimal.ZERO;
-        BigDecimal nowWageSum = BigDecimal.ZERO;
-        int leaveSum = 0;
 
         int rowIndex = 2;
         for (SalaryReportDTO row : rows) {
-            Row excelRow = sheet.createRow(rowIndex++);
-            writeLong(excelRow, 0, row.getEmployeeId(), styles.integer);
-            writeText(excelRow, 1, row.getName(), styles.text);
-            writeText(excelRow, 2, row.getDepartment(), styles.text);
-            writeText(excelRow, 3, row.getPosition(), styles.text);
-            writeInt(excelRow, 4, row.getYearNum(), styles.integer);
-            writeInt(excelRow, 5, row.getMonthNum(), styles.integer);
-            writeInt(excelRow, 6, row.getWorkDay(), styles.integer);
-            writeMoney(excelRow, 7, row.getWage(), styles.money);
-            writeInt(excelRow, 8, row.getLeavesDay(), styles.integer);
-            if (row.getPerformanceScore() == null) {
-                Cell empty = excelRow.createCell(9);
-                empty.setCellValue("未录入");
-                empty.setCellStyle(styles.text);
-            } else {
-                writeDouble(excelRow, 9, row.getPerformanceScore(), styles.score);
-            }
-            writeMoney(excelRow, 10, row.getBonus(), styles.money);
-            writeMoney(excelRow, 11, row.getNowWage(), styles.money);
-
-            wageSum = wageSum.add(nvl(row.getWage()));
-            bonusSum = bonusSum.add(nvl(row.getBonus()));
-            nowWageSum = nowWageSum.add(nvl(row.getNowWage()));
-            leaveSum += row.getLeavesDay() == null ? 0 : row.getLeavesDay();
+            Row dataRow = sheet.createRow(rowIndex++);
+            dataRow.setHeightInPoints(18);
+            int col = 0;
+            writeLong(dataRow, col++, row.getEmployeeId(), intStyle);
+            writeText(dataRow, col++, row.getEmployeeNumber(), textStyle);
+            writeText(dataRow, col++, row.getName(), textStyle);
+            writeText(dataRow, col++, row.getDepartment(), textStyle);
+            writeText(dataRow, col++, row.getPosition(), textStyle);
+            writeInt(dataRow, col++, row.getYearNum(), intStyle);
+            writeInt(dataRow, col++, row.getMonthNum(), intStyle);
+            writeInt(dataRow, col++, row.getWorkDay(), intStyle);
+            writeInt(dataRow, col++, zero(row.getActualDays()), intStyle);
+            writeInt(dataRow, col++, zero(row.getLateCount()), intStyle);
+            writeInt(dataRow, col++, zero(row.getEarlyCount()), intStyle);
+            writeInt(dataRow, col++, zero(row.getAbsentDays()), intStyle);
+            writeInt(dataRow, col++, zero(row.getCasualLeaveDays()), intStyle);
+            writeInt(dataRow, col++, zero(row.getSickLeaveDays()), intStyle);
+            writeInt(dataRow, col++, zero(row.getOtherLeaveDays()), intStyle);
+            writeDecimal(dataRow, col++, row.getOvertimeWeekdayHours(), scoreStyle);
+            writeDecimal(dataRow, col++, row.getOvertimeWeekendHours(), scoreStyle);
+            writeDecimal(dataRow, col++, row.getOvertimeHolidayHours(), scoreStyle);
+            writeMoney(dataRow, col++, row.getOvertimePay(), moneyStyle);
+            writeMoney(dataRow, col++, row.getWage(), moneyStyle);
+            writeMoney(dataRow, col++, row.getLeaveDeduct(), moneyStyle);
+            writeMoney(dataRow, col++, row.getAbsentDeduct(), moneyStyle);
+            writeMoney(dataRow, col++, row.getLateDeduct(), moneyStyle);
+            writeDouble(dataRow, col++, row.getPerformanceScore(), scoreStyle);
+            writeText(dataRow, col++, row.getPerformanceGrade(), textStyle);
+            writeMoney(dataRow, col++, row.getBonus(), moneyStyle);
+            writeMoney(dataRow, col++, row.getAdjustAdd(), moneyStyle);
+            writeMoney(dataRow, col++, row.getAdjustDeduct(), moneyStyle);
+            writeMoney(dataRow, col++, row.getGrossPay(), moneyStyle);
+            writeMoney(dataRow, col++, row.getSocialInsurance(), moneyStyle);
+            writeMoney(dataRow, col++, row.getHousingFund(), moneyStyle);
+            writeMoney(dataRow, col++, row.getTax(), moneyStyle);
+            writeMoney(dataRow, col++, row.getNetPay(), moneyStyle);
         }
 
         if (!rows.isEmpty()) {
             Row totalRow = sheet.createRow(rowIndex);
-            Cell totalLabel = totalRow.createCell(0);
-            totalLabel.setCellValue("合计");
-            totalLabel.setCellStyle(styles.total);
-            sheet.addMergedRegion(new CellRangeAddress(rowIndex, rowIndex, 0, 6));
-
-            Cell wageTotal = totalRow.createCell(7);
-            wageTotal.setCellFormula("SUM(H3:H" + rowIndex + ")");
-            wageTotal.setCellStyle(styles.totalMoney);
-
-            writeInt(totalRow, 8, leaveSum, styles.totalInteger);
-            writeText(totalRow, 9, "", styles.total);
-
-            Cell bonusTotal = totalRow.createCell(10);
-            bonusTotal.setCellFormula("SUM(K3:K" + rowIndex + ")");
-            bonusTotal.setCellStyle(styles.totalMoney);
-
-            Cell nowWageTotal = totalRow.createCell(11);
-            nowWageTotal.setCellFormula("SUM(L3:L" + rowIndex + ")");
-            nowWageTotal.setCellStyle(styles.totalMoney);
+            totalRow.setHeightInPoints(20);
+            Cell label = totalRow.createCell(0);
+            label.setCellValue("合计");
+            label.setCellStyle(headerStyle);
+            sheet.addMergedRegion(new CellRangeAddress(rowIndex, rowIndex, 0, 2));
+            for (int col = 3; col < SALARY_HEADERS.length; col++) {
+                Cell cell = totalRow.createCell(col);
+                cell.setCellStyle(moneyStyle);
+            }
+            for (int col : MONEY_COLUMNS) {
+                Cell cell = totalRow.getCell(col);
+                cell.setCellFormula(String.format("SUM(%s3:%s%d)",
+                        columnName(col), columnName(col), rowIndex));
+            }
         }
 
-        int[] widths = {10, 12, 14, 14, 8, 8, 12, 12, 14, 14, 12, 14};
-        for (int i = 0; i < widths.length; i++) {
-            sheet.setColumnWidth(i, widths[i] * 256);
-        }
         sheet.createFreezePane(0, 2);
     }
 
-    private void writePerformanceSheet(Workbook workbook, Styles styles,
-                                       List<Performance> performances, int year) {
+    private void writePerformanceSheet(Workbook workbook, List<Performance> performances) {
         Sheet sheet = workbook.createSheet("业绩明细");
+        CellStyle headerStyle = headerStyle(workbook);
+        CellStyle textStyle = textStyle(workbook);
+        CellStyle intStyle = intStyle(workbook);
+        CellStyle scoreStyle = scoreStyle(workbook);
+
         Row headerRow = sheet.createRow(0);
+        headerRow.setHeightInPoints(22);
         for (int i = 0; i < PERFORMANCE_HEADERS.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(PERFORMANCE_HEADERS[i]);
-            cell.setCellStyle(styles.header);
+            cell.setCellStyle(headerStyle);
+            sheet.setColumnWidth(i, PERFORMANCE_WIDTHS[i] * 256);
         }
-        headerRow.setHeightInPoints(20);
 
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
         int rowIndex = 1;
         for (Performance performance : performances) {
-            Employee employee = performance.getEmployee();
-            Row row = sheet.createRow(rowIndex++);
-            writeLong(row, 0, employee == null ? null : employee.getId(), styles.integer);
-            writeText(row, 1, employee == null ? "" : employee.getName(), styles.text);
-            writeText(row, 2, employee == null ? "" : employee.getDepartment(), styles.text);
-            writeInt(row, 3, performance.getYear(), styles.integer);
-            writeInt(row, 4, performance.getQuarter(), styles.integer);
-            if (performance.getScore() == null) {
-                writeText(row, 5, "", styles.text);
-            } else {
-                writeDouble(row, 5, performance.getScore(), styles.score);
-            }
-            writeText(row, 6, performance.getEvaluation(), styles.wrap);
-            writeText(row, 7, performance.getEvaluator() == null ? "" : performance.getEvaluator().getName(), styles.text);
-            writeText(row, 8, performance.getCreateTime() == null ? "" : format.format(performance.getCreateTime()), styles.text);
+            Row dataRow = sheet.createRow(rowIndex++);
+            dataRow.setHeightInPoints(18);
+            int col = 0;
+            writeText(dataRow, col++, performance.getEmployee() == null
+                    ? null : performance.getEmployee().getEmployeeNumber(), textStyle);
+            writeText(dataRow, col++, performance.getEmployee() == null
+                    ? null : performance.getEmployee().getName(), textStyle);
+            writeInt(dataRow, col++, performance.getYear(), intStyle);
+            writeInt(dataRow, col++, performance.getQuarter(), intStyle);
+            writeDouble(dataRow, col++, performance.getScore(), scoreStyle);
+            writeDouble(dataRow, col++, performance.getAbilityScore(), scoreStyle);
+            writeDouble(dataRow, col++, performance.getAttitudeScore(), scoreStyle);
+            writeDouble(dataRow, col++, performance.getFinalScore(), scoreStyle);
+            writeText(dataRow, col++, performance.getGrade(), textStyle);
+            writeText(dataRow, col++, performance.getEvaluation(), textStyle);
+            writeText(dataRow, col++, performance.getCreateTime() == null ? null
+                    : new SimpleDateFormat("yyyy-MM-dd HH:mm").format(performance.getCreateTime()), textStyle);
         }
 
-        int[] widths = {10, 12, 14, 8, 8, 12, 40, 14, 18};
-        for (int i = 0; i < widths.length; i++) {
+        sheet.createFreezePane(0, 1);
+    }
+
+    /** 是否有补发/扣款记录 */
+    private boolean hasAdjustments(List<SalaryReportDTO> rows) {
+        if (rows == null) {
+            return false;
+        }
+        for (SalaryReportDTO row : rows) {
+            if (row.getAdjustments() != null && !row.getAdjustments().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 单独的补发/扣款明细文件，供财务核对使用 */
+    public byte[] exportAdjustments(List<SalaryReportDTO> rows, int year, int month) {
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            writeAdjustmentSheet(workbook, rows);
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("生成 Excel 失败：" + e.getMessage(), e);
+        }
+    }
+
+    /** 补发/扣款附加 sheet */
+    private void writeAdjustmentSheet(Workbook workbook, List<SalaryReportDTO> rows) {
+        Sheet sheet = workbook.createSheet("补发扣款明细");
+        CellStyle headerStyle = headerStyle(workbook);
+        CellStyle textStyle = textStyle(workbook);
+        CellStyle moneyStyle = moneyStyle(workbook);
+
+        String[] headers = {"工号", "姓名", "类型", "金额", "原因", "登记人", "登记时间"};
+        int[] widths = {12, 10, 8, 12, 30, 12, 18};
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+            cell.setCellStyle(headerStyle);
             sheet.setColumnWidth(i, widths[i] * 256);
+        }
+        int rowIndex = 1;
+        for (SalaryReportDTO row : rows) {
+            if (row.getAdjustments() == null) {
+                continue;
+            }
+            for (SalaryAdjustmentDTO adjustment : row.getAdjustments()) {
+                Row dataRow = sheet.createRow(rowIndex++);
+                int col = 0;
+                writeText(dataRow, col++, row.getEmployeeNumber(), textStyle);
+                writeText(dataRow, col++, row.getName(), textStyle);
+                writeText(dataRow, col++, adjustment.getTypeName(), textStyle);
+                writeMoney(dataRow, col++, adjustment.getAmount(), moneyStyle);
+                writeText(dataRow, col++, adjustment.getReason(), textStyle);
+                writeText(dataRow, col++, adjustment.getOperatorName(), textStyle);
+                writeText(dataRow, col++, adjustment.getCreateTime(), textStyle);
+            }
         }
         sheet.createFreezePane(0, 1);
     }
 
-    private void writeText(Row row, int column, String value, CellStyle style) {
-        Cell cell = row.createCell(column);
+    private static String columnName(int columnIndex) {
+        StringBuilder name = new StringBuilder();
+        int index = columnIndex;
+        while (index >= 0) {
+            name.insert(0, (char) ('A' + index % 26));
+            index = index / 26 - 1;
+        }
+        return name.toString();
+    }
+
+    private static int zero(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private void writeText(Row row, int col, String value, CellStyle style) {
+        Cell cell = row.createCell(col);
         cell.setCellValue(value == null ? "" : value);
         cell.setCellStyle(style);
     }
 
-    private void writeInt(Row row, int column, Integer value, CellStyle style) {
-        Cell cell = row.createCell(column);
+    private void writeInt(Row row, int col, Integer value, CellStyle style) {
+        Cell cell = row.createCell(col);
         if (value != null) {
             cell.setCellValue(value);
         }
         cell.setCellStyle(style);
     }
 
-    private void writeLong(Row row, int column, Long value, CellStyle style) {
-        Cell cell = row.createCell(column);
+    private void writeLong(Row row, int col, Long value, CellStyle style) {
+        Cell cell = row.createCell(col);
         if (value != null) {
             cell.setCellValue(value);
         }
         cell.setCellStyle(style);
     }
 
-    private void writeDouble(Row row, int column, Double value, CellStyle style) {
-        Cell cell = row.createCell(column);
+    private void writeDouble(Row row, int col, Double value, CellStyle style) {
+        Cell cell = row.createCell(col);
         if (value != null) {
             cell.setCellValue(value);
         }
         cell.setCellStyle(style);
     }
 
-    private void writeMoney(Row row, int column, BigDecimal value, CellStyle style) {
-        Cell cell = row.createCell(column);
+    private void writeDecimal(Row row, int col, BigDecimal value, CellStyle style) {
+        Cell cell = row.createCell(col);
         if (value != null) {
             cell.setCellValue(value.doubleValue());
         }
         cell.setCellStyle(style);
     }
 
-    private BigDecimal nvl(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
+    private void writeMoney(Row row, int col, BigDecimal value, CellStyle style) {
+        Cell cell = row.createCell(col);
+        cell.setCellValue(value == null ? 0D : value.doubleValue());
+        cell.setCellStyle(style);
     }
 
-    /**
-     * 复用同一套单元格样式
-     */
-    private static class Styles {
-        private final CellStyle title;
-        private final CellStyle header;
-        private final CellStyle text;
-        private final CellStyle wrap;
-        private final CellStyle integer;
-        private final CellStyle score;
-        private final CellStyle money;
-        private final CellStyle total;
-        private final CellStyle totalInteger;
-        private final CellStyle totalMoney;
+    private CellStyle titleStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setFontName("微软雅黑");
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 14);
+        style.setFont(font);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
 
-        Styles(Workbook workbook) {
-            Font baseFont = workbook.createFont();
-            baseFont.setFontName("微软雅黑");
-            baseFont.setFontHeightInPoints((short) 10);
+    private CellStyle headerStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setFontName("微软雅黑");
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 10);
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        return style;
+    }
 
-            Font titleFont = workbook.createFont();
-            titleFont.setFontName("微软雅黑");
-            titleFont.setBold(true);
-            titleFont.setFontHeightInPoints((short) 14);
+    private CellStyle textStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setFontName("微软雅黑");
+        font.setFontHeightInPoints((short) 10);
+        style.setFont(font);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        return style;
+    }
 
-            Font headerFont = workbook.createFont();
-            headerFont.setFontName("微软雅黑");
-            headerFont.setBold(true);
-            headerFont.setFontHeightInPoints((short) 10);
+    private CellStyle intStyle(Workbook workbook) {
+        CellStyle style = textStyle(workbook);
+        style.setDataFormat(workbook.createDataFormat().getFormat("0"));
+        style.setAlignment(HorizontalAlignment.CENTER);
+        return style;
+    }
 
-            this.title = workbook.createCellStyle();
-            this.title.setFont(titleFont);
-            this.title.setAlignment(HorizontalAlignment.CENTER);
-            this.title.setVerticalAlignment(VerticalAlignment.CENTER);
+    private CellStyle scoreStyle(Workbook workbook) {
+        CellStyle style = textStyle(workbook);
+        style.setDataFormat(workbook.createDataFormat().getFormat("0.0"));
+        style.setAlignment(HorizontalAlignment.CENTER);
+        return style;
+    }
 
-            this.header = workbook.createCellStyle();
-            this.header.setFont(headerFont);
-            this.header.setAlignment(HorizontalAlignment.CENTER);
-            this.header.setVerticalAlignment(VerticalAlignment.CENTER);
-            this.header.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            this.header.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            border(this.header);
-
-            this.text = workbook.createCellStyle();
-            this.text.setFont(baseFont);
-            this.text.setVerticalAlignment(VerticalAlignment.CENTER);
-            border(this.text);
-
-            this.wrap = workbook.createCellStyle();
-            this.wrap.setFont(baseFont);
-            this.wrap.setWrapText(true);
-            this.wrap.setVerticalAlignment(VerticalAlignment.CENTER);
-            border(this.wrap);
-
-            this.integer = workbook.createCellStyle();
-            this.integer.setFont(baseFont);
-            this.integer.setAlignment(HorizontalAlignment.CENTER);
-            this.integer.setDataFormat(workbook.createDataFormat().getFormat("0"));
-            border(this.integer);
-
-            this.score = workbook.createCellStyle();
-            this.score.setFont(baseFont);
-            this.score.setAlignment(HorizontalAlignment.CENTER);
-            this.score.setDataFormat(workbook.createDataFormat().getFormat("0.0"));
-            border(this.score);
-
-            this.money = workbook.createCellStyle();
-            this.money.setFont(baseFont);
-            this.money.setAlignment(HorizontalAlignment.RIGHT);
-            this.money.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00"));
-            border(this.money);
-
-            this.total = workbook.createCellStyle();
-            this.total.setFont(headerFont);
-            this.total.setAlignment(HorizontalAlignment.RIGHT);
-            this.total.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            this.total.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            border(this.total);
-
-            this.totalInteger = workbook.createCellStyle();
-            this.totalInteger.setFont(headerFont);
-            this.totalInteger.setAlignment(HorizontalAlignment.CENTER);
-            this.totalInteger.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            this.totalInteger.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            this.totalInteger.setDataFormat(workbook.createDataFormat().getFormat("0"));
-            border(this.totalInteger);
-
-            this.totalMoney = workbook.createCellStyle();
-            this.totalMoney.setFont(headerFont);
-            this.totalMoney.setAlignment(HorizontalAlignment.RIGHT);
-            this.totalMoney.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            this.totalMoney.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            this.totalMoney.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00"));
-            border(this.totalMoney);
-        }
-
-        private static void border(CellStyle style) {
-            style.setBorderTop(BorderStyle.THIN);
-            style.setBorderBottom(BorderStyle.THIN);
-            style.setBorderLeft(BorderStyle.THIN);
-            style.setBorderRight(BorderStyle.THIN);
-            style.setTopBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
-            style.setBottomBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
-            style.setLeftBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
-            style.setRightBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
-        }
+    private CellStyle moneyStyle(Workbook workbook) {
+        CellStyle style = textStyle(workbook);
+        style.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00"));
+        style.setAlignment(HorizontalAlignment.RIGHT);
+        return style;
     }
 }

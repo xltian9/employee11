@@ -3,297 +3,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>员工个人中心</title>
-    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.min.css" rel="stylesheet">
-    <style>
-        .sidebar {
-            min-height: 100vh;
-            background-color: #343a40;
-            padding-top: 20px;
-        }
-        .nav-link {
-            color: #fff;
-            padding: 10px 20px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-			margin: 10px auto;
-        }
-        .nav-link:hover {
-            background-color: #495057;
-            color: #fff;
-            transform: translateX(5px);
-        }
-        .nav-link.active {
-            background-color: #0d6efd;
-            color: #fff;
-            font-weight: bold;
-        }
-        .nav-link i {
-            font-size: 1.2rem;
-        }
-        .content {
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
-
-       /* .avatar-container {
-          width: 150px;
-          height: 150px;
-          border: 2px solid #ddd;
-          border-radius: 50%;
-          overflow: hidden;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        } */
-        
-		.tubiao{
-			width: 50px;
-			height: 50px;
-			margin-left:95px;
-		}
-		
-        .avatar {
-            width: 150px;
-            height: 200px;        /* 允许非正方形 */
-            clip-path: circle(50% at 50% 50%); /* 圆心居中 */
-            object-fit: cover;
-            border: 2px solid #ddd;
-            border-radius: 50%;   /* 兼容不支持 clip-path 的浏览器 */
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-    </style>
+    <title>员工自助中心</title>
+    <link href="/css/app.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- 左侧导航栏 -->
-            <div class="col-md-2 sidebar">
-				<img class="tubiao" src="../imgs/tubiao.png" alt="图标"/>
-                <div class="text-center mb-4">
-					
-                    <h4 class="text-white">员工个人中心</h4>
-                </div>
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#" onclick="showContent('personal-info')">
-                            <i class="bi bi-person"></i> 个人信息
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showContent('leave-manage')">
-                            <i class="bi bi-calendar"></i> 请假申请
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showContent('notice-view')">
-                            <i class="bi bi-bell"></i> 公告查看
-                        </a>
-                    </li>
-<!-- 					<li class="nav-item">
-					    <a class="nav-link" href="#" onclick="showContent('attendance-view')">
-					        <i class="bi bi-bell"></i> 签到
-					    </a>
-					</li> -->
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showContent('salary-view')">
-                            <i class="bi bi-cash-stack"></i> 我的工资
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="logout()">
-                            <i class="bi bi-box-arrow-right"></i> 退出登录
-                        </a>
-                    </li>
-                </ul>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">EP</div>
+            <div class="brand-text">
+                <strong>员工自助</strong>
+                <span>Employee Portal</span>
             </div>
+        </div>
+        <nav class="nav">
+            <div class="nav-group-title">个人</div>
+            <a class="nav-item active" href="#" data-section="profile" onclick="showSection('profile', this)">
+                <span class="nav-dot"></span>我的信息
+            </a>
+            <a class="nav-item" href="#" data-section="attendance" onclick="showSection('attendance', this)">
+                <span class="nav-dot"></span>我的考勤
+            </a>
+            <a class="nav-item" href="#" data-section="leave" onclick="showSection('leave', this)">
+                <span class="nav-dot"></span>我的请假
+            </a>
+            <a class="nav-item" href="#" data-section="performance" onclick="showSection('performance', this)">
+                <span class="nav-dot"></span>我的绩效
+            </a>
+            <div class="nav-group-title">薪酬</div>
+            <a class="nav-item" href="#" data-section="salary" onclick="showSection('salary', this)">
+                <span class="nav-dot"></span>我的工资
+            </a>
+            <div class="nav-group-title">其他</div>
+            <a class="nav-item" href="#" data-section="notice" onclick="showSection('notice', this)">
+                <span class="nav-dot"></span>公司公告
+            </a>
+            <a class="nav-item" href="#" onclick="logout()">
+                <span class="nav-dot"></span>退出登录
+            </a>
+        </nav>
+        <div class="sidebar-foot">© 2026 员工管理系统</div>
+    </aside>
 
-            <!-- 右侧内容区 -->
-            <div class="col-md-10 content">
-                <!-- 个人信息 -->
-                <div id="personal-info" class="content-section">
+    <div class="main-area">
+        <header class="topbar">
+            <div>
+                <div class="topbar-title" id="pageTitle">我的信息</div>
+                <div class="topbar-sub" id="pageSub">查看个人档案与登录密码</div>
+            </div>
+            <div class="topbar-user">
+                <img id="topbarAvatar" class="avatar" src="/imgs/tubiao.png" alt="头像">
+                <div>
+                    <div class="topbar-name" id="topbarName">员工</div>
+                    <div class="topbar-role">员工账号</div>
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+            <!-- 我的信息 -->
+            <section class="content-section" id="profile-section">
+                <div class="split">
                     <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">个人信息</h5>
+                        <div class="card-head">
+                            <h3 class="card-title">个人档案</h3>
+                            <span class="hint" id="profileHint">信息由管理员维护</span>
+                        </div>
+                        <div class="card-body" id="profileBody">
+                            <div class="empty-state">正在加载…</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head">
+                            <h3 class="card-title">账号安全</h3>
                         </div>
                         <div class="card-body">
-                            <div class="row" id="employeeInfo">
-                                <!-- 个人信息将在这里动态加载 -->
+                            <div class="field">
+                                <label for="oldPassword">当前密码</label>
+                                <input type="password" id="oldPassword" placeholder="首次登录为本人手机号">
                             </div>
+                            <div class="field">
+                                <label for="newPassword">新密码</label>
+                                <input type="password" id="newPassword" placeholder="6-64 位">
+                            </div>
+                            <div class="field">
+                                <label for="confirmPassword">确认新密码</label>
+                                <input type="password" id="confirmPassword" placeholder="再次输入">
+                            </div>
+                            <button class="btn" onclick="changePassword()">修改密码</button>
+                            <p class="hint" style="margin-top:12px;">建议首次登录后立即修改为个人常用密码。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 我的考勤 -->
+            <section class="content-section" id="attendance-section" style="display:none;">
+                <div class="page-head">
+                    <div>
+                        <h2 class="page-title">打卡与出勤</h2>
+                        <p class="page-desc">工作日无打卡也没请假会被记为旷工，直接影响当月工资</p>
+                    </div>
+                    <div class="toolbar">
+                        <input type="number" id="attYear" min="2000" max="2100"
+                               style="width:96px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+                        <select id="attMonth" style="width:100px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;"></select>
+                        <button class="btn btn-ghost" onclick="loadMyAttendance()">查询</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <h3 class="card-title">今日打卡</h3>
+                        <span class="hint" id="todayHint"></span>
+                    </div>
+                    <div class="card-body" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                        <button class="btn" onclick="checkIn()">上班签到</button>
+                        <button class="btn btn-ghost" onclick="checkOut()">下班签退</button>
+                        <span class="badge" id="todayStatus">未打卡</span>
+                    </div>
+                </div>
+
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="stat-label">工作日</div>
+                        <div class="stat-value" id="attWorkDays">-</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">出勤</div>
+                        <div class="stat-value" id="attActualDays">-</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">请假</div>
+                        <div class="stat-value" id="attLeaveDays">-</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">旷工 / 迟到</div>
+                        <div class="stat-value" id="attAbsentLate">-</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <h3 class="card-title">每日明细</h3>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="width:140px;">日期</th>
+                                    <th>状态</th>
+                                    <th>签到</th>
+                                    <th>签退</th>
+                                    <th>请假类型</th>
+                                    <th>备注</th>
+                                </tr>
+                            </thead>
+                            <tbody id="myAttendanceBody">
+                                <tr class="empty-row"><td colspan="6">正在加载…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 我的请假 -->
+            <section class="content-section" id="leave-section" style="display:none;">
+                <div class="page-head">
+                    <div>
+                        <h2 class="page-title">我的请假</h2>
+                        <p class="page-desc">按工作日自动计算天数；事假全额扣、病假按比例扣、年假调休不扣</p>
+                    </div>
+                    <div class="toolbar">
+                        <button class="btn" onclick="showLeaveForm()">申请请假</button>
+                    </div>
+                </div>
+
+                <div class="card" id="leaveFormCard" hidden>
+                    <div class="card-head">
+                        <h3 class="card-title">请假申请</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid-2">
+                            <div class="field">
+                                <label for="leaveType">类型</label>
+                                <select id="leaveType">
+                                    <option value="1">事假</option>
+                                    <option value="2">病假</option>
+                                    <option value="3">年假</option>
+                                    <option value="4">调休</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="leaveReason">原因</label>
+                                <input type="text" id="leaveReason" placeholder="简要说明">
+                            </div>
+                        </div>
+                        <div class="grid-2">
+                            <div class="field">
+                                <label for="leaveStart">开始时间</label>
+                                <input type="datetime-local" id="leaveStart">
+                            </div>
+                            <div class="field">
+                                <label for="leaveEnd">结束时间</label>
+                                <input type="datetime-local" id="leaveEnd">
+                            </div>
+                        </div>
+                        <div class="toolbar">
+                            <button class="btn" onclick="submitLeave()">提交申请</button>
+                            <button class="btn btn-ghost" onclick="hideLeaveForm()">取消</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- 请假管理 -->
-                <div id="leave-manage" class="content-section" style="display: none;">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">我的请假记录</h5>
-                            <!-- 添加 aria-label 提升可访问性 -->
-                            <button class="btn btn-primary" onclick="showApplyLeaveModal()" aria-label="申请请假">申请请假</button>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>请假类型</th>
-                                            <th>开始时间</th>
-                                            <th>结束时间</th>
-                                            <th>请假天数(单位:天)</th>
-                                            <th>状态</th>
-                                            <th>审批人</th>
-                                            <th>审批意见</th>
-                                            <th>操作</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="leaveTableBody">
-                                        <!-- 请假记录将在这里动态加载 -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>类型</th>
+                                    <th>开始时间</th>
+                                    <th>结束时间</th>
+                                    <th class="num">天数</th>
+                                    <th>原因</th>
+                                    <th>状态</th>
+                                    <th>审批意见</th>
+                                    <th style="width:90px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="myLeaveBody">
+                                <tr class="empty-row"><td colspan="8">正在加载…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 我的绩效 -->
+            <section class="content-section" id="performance-section" style="display:none;">
+                <div class="page-head">
+                    <div>
+                        <h2 class="page-title">我的绩效</h2>
+                        <p class="page-desc">综合得分 = 业绩 60% + 能力 20% + 态度 20% − 出勤扣分，等级决定奖金系数</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>年份</th>
+                                    <th>季度</th>
+                                    <th class="num">业绩分</th>
+                                    <th class="num">能力分</th>
+                                    <th class="num">态度分</th>
+                                    <th class="num">综合分</th>
+                                    <th>等级</th>
+                                    <th>评价</th>
+                                    <th>录入时间</th>
+                                </tr>
+                            </thead>
+                            <tbody id="myPerformanceBody">
+                                <tr class="empty-row"><td colspan="9">正在加载…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 我的工资 -->
+            <section class="content-section" id="salary-section" style="display:none;">
+                <div class="page-head">
+                    <div>
+                        <h2 class="page-title">我的工资</h2>
+                        <p class="page-desc">只能查看本人工资，明细含考勤扣款、加班费、季度奖金、社保公积金与个税</p>
+                    </div>
+                    <div class="toolbar">
+                        <input type="number" id="salaryYear" min="2000" max="2100"
+                               style="width:96px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+                        <select id="salaryMonth" style="width:100px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;"></select>
+                        <button class="btn btn-ghost" onclick="loadMySalary()">查询</button>
+                        <button class="btn" onclick="exportMySalary()">导出明细</button>
                     </div>
                 </div>
 
-                <!-- 公告查看 -->
-                <div id="notice-view" class="content-section" style="display: none;">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">公告列表</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="noticeList">
-                                <!-- 公告列表将在这里动态加载 -->
-                            </div>
-                        </div>
+                <div class="stat-grid" id="salaryCards">
+                    <div class="stat">
+                        <div class="stat-label">实发工资</div>
+                        <div class="stat-value" id="cardNet">-</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">应发工资</div>
+                        <div class="stat-value" id="cardGross">-</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">奖金</div>
+                        <div class="stat-value" id="cardBonus">-</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">各项扣款</div>
+                        <div class="stat-value" id="cardDeduct">-</div>
                     </div>
                 </div>
 
-                <!-- 我的工资 -->
-                <div id="salary-view" class="content-section" style="display: none;">
-                    <div class="card">
-                        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                            <h5 class="mb-0">我的工资</h5>
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="number" id="salaryYear" class="form-control" min="2000" max="2100" style="width: 110px;">
-                                <select id="salaryMonth" class="form-select" style="width: 100px;"></select>
-                                <button class="btn btn-primary" onclick="loadMySalary()">查询</button>
-                                <button class="btn btn-outline-success" onclick="exportMySalary()">导出</button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="row g-3 mb-3" id="salaryCards"></div>
-                            <div class="table-responsive">
-                                <table class="table table-bordered align-middle">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>年份</th>
-                                            <th>月份</th>
-                                            <th>当月工作日</th>
-                                            <th>月薪</th>
-                                            <th>当月请假天数</th>
-                                            <th>季度绩效评分</th>
-                                            <th>奖金</th>
-                                            <th>实际工资</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="salaryTableBody">
-                                        <!-- 工资明细动态加载 -->
-                                    </tbody>
-                                </table>
-                            </div>
-                            <p class="text-muted small mb-0">
-                                实际工资 = 月薪 − 月薪 ÷ 当月工作日 × 请假天数 + 奖金；奖金 = 月薪 × 季度绩效系数（评分 ≥90 20%、≥80 15%、≥70 10%、≥60 5%）。
-                            </p>
-                        </div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>项目</th>
+                                    <th class="num">金额 / 数值</th>
+                                    <th>说明</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salaryDetailBody">
+                                <tr class="empty-row"><td colspan="3">正在加载…</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
+            </section>
 
-    <!-- 申请请假模态框 -->
-    <div class="modal fade" id="leaveModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">申请请假</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <!-- 公告 -->
+            <section class="content-section" id="notice-section" style="display:none;">
+                <div class="page-head">
+                    <div>
+                        <h2 class="page-title">公司公告</h2>
+                        <p class="page-desc">仅显示管理员已发布的公告</p>
+                    </div>
                 </div>
-                <div class="modal-body">
-                    <form id="leaveForm">
-                        <div class="mb-3">
-                            <label class="form-label">请假类型</label>
-                            <select class="form-select" id="leaveType" required>
-                                <option value="1">事假</option>
-                                <option value="2">病假</option>
-                                <option value="3">年假</option>
-                                <option value="4">调休</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">开始时间</label>
-                            <input type="datetime-local" class="form-control" id="leaveStartTime" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">结束时间</label>
-                            <input type="datetime-local" class="form-control" id="leaveEndTime" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">请假天数（/天）</label>
-                            <input class="form-control" id="leavesDay"  required></input>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">请假原因</label>
-                            <textarea class="form-control" id="leaveReason" rows="3" required></textarea>
-                        </div>
-                    </form>
+                <div id="noticeList">
+                    <div class="empty-state">正在加载…</div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" onclick="submitLeave()">提交</button>
-                </div>
-            </div>
-        </div>
+            </section>
+        </main>
     </div>
+</div>
 
-    <!-- 错误提示模态框 -->
-    <div class="modal fade" id="errorModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">错误提示</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="errorMessage"></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="toast-host" id="toastHost"></div>
 
-    <!-- 成功提示模态框 -->
-    <div class="modal fade" id="successModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">提示</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="successMessage"></p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/auth-guard.js"></script>
-    <script src="/js/employee-center.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/employee-center.js"></script>
 </body>
-</html> 
+</html>

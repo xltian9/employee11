@@ -29,8 +29,25 @@ public class Performance {
     @Column(name = "quarter", nullable = false, columnDefinition = "TINYINT COMMENT '季度：1-4'")
     private Integer quarter;
 
-    @Column(name = "score", nullable = false, precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1) COMMENT '评分'")
+    /** 业绩分（原"评分"字段，权重 60%） */
+    @Column(name = "score", nullable = false, precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1) COMMENT '业绩分（权重60%）'")
     private Double score;
+
+    /** 能力分（权重 20%），为空时按业绩分计算 */
+    @Column(name = "ability_score", precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1) COMMENT '能力分（权重20%）'")
+    private Double abilityScore;
+
+    /** 态度分（权重 20%），为空时按业绩分计算 */
+    @Column(name = "attitude_score", precision = 3, scale = 1, columnDefinition = "DECIMAL(3,1) COMMENT '态度分（权重20%）'")
+    private Double attitudeScore;
+
+    /** 综合得分 = 0.6×业绩 + 0.2×能力 + 0.2×态度 − 出勤扣分 */
+    @Column(name = "final_score", precision = 4, scale = 1, columnDefinition = "DECIMAL(4,1) COMMENT '综合得分'")
+    private Double finalScore;
+
+    /** 绩效等级：S/A/B/C/D */
+    @Column(name = "grade", length = 2, columnDefinition = "VARCHAR(2) COMMENT '绩效等级 S/A/B/C/D'")
+    private String grade;
 
     @Lob
     @Column(name = "evaluation", nullable = false, columnDefinition = "TEXT COMMENT '评价'")

@@ -3,179 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>员工管理系统 - 登录</title>
-    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <title>员工管理系统 · 登录</title>
+    <link href="/css/app.css" rel="stylesheet">
     <style>
-        html, body {
-            height: 100%;
-        }
         body {
+            min-height: 100vh;
+            margin: 0;
+            background: radial-gradient(1200px 600px at 20% 0%, #e8efff 0%, #f5f6fa 55%, #f5f6fa 100%);
+        }
+
+        .login-shell {
+            min-height: 100vh;
             display: flex;
             align-items: center;
-            background-color: #f5f5f5;
+            justify-content: center;
+            padding: 32px 16px;
         }
-        .login-container {
+
+        .login-card {
             width: 100%;
-            max-width: 400px;
-            padding: 15px;
-            margin: auto;
+            max-width: 880px;
+            display: grid;
+            grid-template-columns: 1.05fr .95fr;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, .10);
+            overflow: hidden;
         }
-        .form-signin {
-            background-color: white;
-            padding: 30px;
+
+        .login-aside {
+            padding: 40px 36px;
+            background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+            color: #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .login-aside h1 {
+            color: #fff;
+            font-size: 22px;
+            margin: 22px 0 10px;
+            letter-spacing: .5px;
+        }
+
+        .login-aside p {
+            font-size: 13px;
+            line-height: 1.9;
+            color: #94a3b8;
+            margin: 0;
+        }
+
+        .login-aside ul {
+            margin: 18px 0 0;
+            padding-left: 18px;
+            font-size: 13px;
+            line-height: 2;
+            color: #94a3b8;
+        }
+
+        .login-aside .brand-mark {
+            width: 42px;
+            height: 42px;
+            font-size: 15px;
+        }
+
+        .login-form {
+            padding: 40px 36px;
+        }
+
+        .login-form h2 {
+            margin: 0 0 6px;
+            font-size: 20px;
+        }
+
+        .login-form .sub {
+            margin: 0 0 22px;
+            color: var(--ink-soft);
+            font-size: 13px;
+        }
+
+        .tabs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            padding: 4px;
+            background: #f1f5f9;
             border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            margin-bottom: 22px;
         }
-        .login-title {
+
+        .tab {
+            padding: 9px 10px;
             text-align: center;
-            margin-bottom: 30px;
-            color: #333;
+            border-radius: 8px;
+            font-size: 13.5px;
+            color: #475569;
+            cursor: pointer;
+            border: none;
+            background: none;
+            transition: background .16s ease, color .16s ease, box-shadow .16s ease;
         }
-        .form-floating {
-            margin-bottom: 15px;
+
+        .tab.active {
+            background: #fff;
+            color: var(--brand-dark);
+            font-weight: 600;
+            box-shadow: var(--shadow-sm);
         }
-        .btn-login {
+
+        .login-submit {
             width: 100%;
-            padding: 12px;
-            margin-top: 20px;
+            justify-content: center;
+            padding: 11px 14px;
+            margin-top: 6px;
         }
-        .login-type {
-            text-align: center;
-            margin-bottom: 20px;
+
+        @media (max-width: 760px) {
+            .login-card {
+                grid-template-columns: 1fr;
+            }
+
+            .login-aside {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="form-signin">
-            <h2 class="login-title">员工管理系统</h2>
-            
-            <!-- 登录类型选择 -->
-            <div class="login-type">
-                <div class="btn-group" role="group">
-                    <input type="radio" class="btn-check" name="loginType" id="employeeLogin" value="employee" checked>
-                    <label class="btn btn-outline-primary" for="employeeLogin">员工登录</label>
+<div class="login-shell">
+    <div class="login-card">
+        <aside class="login-aside">
+            <div>
+                <div class="brand-mark">EP</div>
+                <h1>员工管理系统</h1>
+                <p>考勤 · 请假 · 绩效 · 工资，一体化管理<br>所有敏感操作均留有审计日志</p>
+                <ul>
+                    <li>管理员：维护员工、审批请假、核算工资</li>
+                    <li>员工：打卡、请假、查看绩效与本人工资</li>
+                </ul>
+            </div>
+            <p style="margin-top:28px;font-size:12px;">© 2026 Employee Platform</p>
+        </aside>
 
-                    <input type="radio" class="btn-check" name="loginType" id="adminLogin" value="admin">
-                    <label class="btn btn-outline-primary" for="adminLogin">管理员登录</label>
-                </div>
+        <section class="login-form">
+            <h2 id="formTitle">员工登录</h2>
+            <p class="sub">请使用姓名（或工号）与密码登录</p>
+
+            <div class="tabs">
+                <button type="button" class="tab active" id="tabEmployee" onclick="switchType('employee')">员工登录</button>
+                <button type="button" class="tab" id="tabAdmin" onclick="switchType('admin')">管理员登录</button>
             </div>
 
-            <form id="loginForm">
-                <div class="form-floating">
-                    <input type="text" class="form-control" id="username" placeholder="用户名" required>
+            <form id="loginForm" autocomplete="off">
+                <div class="field">
                     <label for="username" id="usernameLabel">姓名</label>
+                    <input type="text" id="username" placeholder="请输入姓名" required>
                 </div>
-                <div class="form-floating">
-                    <input type="password" class="form-control" id="password" placeholder="密码" required>
+                <div class="field">
                     <label for="password" id="passwordLabel">密码</label>
+                    <input type="password" id="password" placeholder="请输入密码" required>
                 </div>
-                <button type="submit" class="btn btn-primary btn-login">登录</button>
-                <div class="form-text text-center mt-3" style="font-size: 12px; color: #888;">
+                <button type="submit" class="btn btn-primary login-submit" id="submitBtn">登录</button>
+                <div class="hint" style="margin-top:14px;text-align:center;">
                     员工首次登录的初始密码为本人手机号，登录后请尽快修改。
                 </div>
             </form>
-        </div>
+        </section>
     </div>
+</div>
 
-    <!-- 错误提示模态框 -->
-    <div class="modal fade" id="errorModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">提示</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="errorMessage"></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="toast-host" id="toastHost"></div>
 
-    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // 获取元素
-        const loginForm = document.getElementById('loginForm');
-        const loginTypeInputs = document.getElementsByName('loginType');
-        const usernameLabel = document.getElementById('usernameLabel');
-        const passwordLabel = document.getElementById('passwordLabel');
-        const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
-        const errorMessage = document.getElementById('errorMessage');
+<script src="/js/api.js"></script>
+<script>
+    var loginType = 'employee';
 
-        // 切换登录类型时更改标签文本
-        loginTypeInputs.forEach(input => {
-            input.addEventListener('change', function() {
-                if (this.value === 'employee') {
-                    usernameLabel.textContent = '姓名';
-                    passwordLabel.textContent = '密码';
-                } else {
-                    usernameLabel.textContent = '管理员账号';
-                    passwordLabel.textContent = '密码';
-                }
-            });
-        });
+    function switchType(type) {
+        loginType = type;
+        var isAdmin = type === 'admin';
+        document.getElementById('tabEmployee').classList.toggle('active', !isAdmin);
+        document.getElementById('tabAdmin').classList.toggle('active', isAdmin);
+        document.getElementById('formTitle').textContent = isAdmin ? '管理员登录' : '员工登录';
+        document.getElementById('usernameLabel').textContent = isAdmin ? '管理员账号' : '姓名';
+        document.getElementById('username').placeholder = isAdmin ? '请输入管理员账号' : '请输入姓名';
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+    }
 
-        // 表单提交处理
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const loginType = document.querySelector('input[name="loginType"]:checked').value;
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            // 员工与管理员都走真实密码校验，这里只做非空校验
-            if (!password) {
-                showError('请输入密码');
-                return;
-            }
-            if (!username) {
-                showError('请输入姓名或账号');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        loginType: loginType,
-                        username: username,
-                        password: password
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (data.code === 200) {
-                    // 在登录成功后保存员工ID
-                    if (loginType === 'employee') {
-                        // 保存员工ID到 sessionStorage
-                        sessionStorage.setItem('employeeId', data.data.id);
-                        window.location.href = '/pages/employee-center.html';
-                    } else {
-                        localStorage.setItem('adminName', data.data.name);
-                        localStorage.setItem('adminId', data.data.id);
-                        window.location.href = '/index.html';
-                    }
-                } else {
-                    showError(data.msg || '登录失败');
-                }
-            } catch (error) {
-                showError('服务器错误，请稍后重试');
-            }
-        });
-
-        // 显示错误信息
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorModal.show();
+    document.getElementById('loginForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var username = document.getElementById('username').value.trim();
+        var password = document.getElementById('password').value;
+        if (!username) {
+            Toast.warning('请输入' + (loginType === 'admin' ? '管理员账号' : '姓名'));
+            return;
         }
-    </script>
+        if (!password) {
+            Toast.warning('请输入密码');
+            return;
+        }
+
+        var button = document.getElementById('submitBtn');
+        button.disabled = true;
+        button.textContent = '登录中…';
+
+        Api.post('/api/auth/login', {
+            loginType: loginType,
+            username: username,
+            password: password
+        }).then(function (data) {
+            if (loginType === 'employee') {
+                window.sessionStorage.setItem('employeeId', data.id);
+                window.sessionStorage.setItem('employeeName', data.name || '');
+                window.location.href = '/pages/employee-center.html';
+            } else {
+                window.localStorage.setItem('adminName', data.name || '');
+                window.localStorage.setItem('adminId', data.id);
+                window.location.href = '/index.html';
+            }
+        }).catch(function (error) {
+            Toast.error(error.message || '登录失败');
+            button.disabled = false;
+            button.textContent = '登录';
+        });
+    });
+</script>
 </body>
-</html> 
+</html>

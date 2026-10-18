@@ -1,106 +1,145 @@
 package com.limiti.employee.controller;
 
 import com.limiti.employee.common.Result;
+import com.limiti.employee.dto.AttendanceSummaryDTO;
+import com.limiti.employee.dto.DailyAttendanceDTO;
 import com.limiti.employee.entity.Attendance;
+import com.limiti.employee.entity.Employee;
 import com.limiti.employee.repository.AttendanceRepository;
+import com.limiti.employee.repository.EmployeeRepository;
 import com.limiti.employee.security.SessionUser;
 import com.limiti.employee.service.AttendanceService;
+import com.limiti.employee.service.AttendanceStatsService;
+import com.limiti.employee.exception.BusinessException;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
- * 考勤管理控制器
- * 处理员工考勤相关的请求，包括签到、签退和考勤记录查询
+ * 考勤管理控制器：签到、签退、考勤记录、月度统计与每日明细。
+ *
+ * <p>统计不落库，每次按「工作日 × 打卡记录 × 已批准请假」实时计算，
+ * 所以管理员撤销请假后，考勤与工资立刻同步变化。</p>
+ *
  * @author Limiti
- * @date 2024/11/20
  */
-@Slf4j
 @RestController
 @RequestMapping("/api/attendance")
 @Api(tags = "考勤管理接口")
 public class AttendanceController {
 
-    /** 考勤服务 */
     @Autowired
     private AttendanceService attendanceService;
 
     @Autowired
+    private AttendanceStatsService attendanceStatsService;
+
+    @Autowired
     private AttendanceRepository attendanceRepository;
 
-    /**
-     * 员工签到（本人或管理员）
-     * @param employeeId 员工ID
-     * @return 签到记录
-     */
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
     @PostMapping("/check-in/{employeeId}")
     @ApiOperation("员工签到")
     public Result<Attendance> checkIn(@PathVariable Long employeeId, HttpServletRequest request) {
-        if (!SessionUser.canAccessEmployee(request, employeeId)) {
-            return Result.error(403, "无权为其他员工签到");
-        }
-        try {
-            log.info("员工签到请求, employeeId: {}", employeeId);
-            Attendance attendance = attendanceService.checkIn(employeeId);
-            log.info("签到成功: {}", attendance);
-            return Result.success(attendance);
-        } catch (Exception e) {
-            log.error("签到失败, employeeId: {}", employeeId, e);
-            return Result.error("签到失败：" + e.getMessage());
-        }
+        SessionUser.requireAccessEmployee(request, employeeId);
+        return Result.success(attendanceService.checkIn(employeeId));
     }
 
-    /**
-     * 员工签退（仅限本人记录，管理员放行）
-     * @param attendanceId 考勤记录ID
-     * @return 更新后的考勤记录
-     */
     @PostMapping("/check-out/{attendanceId}")
     @ApiOperation("员工签退")
     public Result<Attendance> checkOut(@PathVariable Long attendanceId, HttpServletRequest request) {
-        try {
-            Attendance target = attendanceRepository.findById(attendanceId).orElse(null);
-            if (target == null) {
-                return Result.error(404, "考勤记录不存在");
-            }
-            Long ownerId = target.getEmployee() == null ? null : target.getEmployee().getId();
-            if (!SessionUser.canAccessEmployee(request, ownerId)) {
-                return Result.error(403, "无权为其他员工签退");
-            }
-            log.info("员工签退请求, attendanceId: {}", attendanceId);
-            Attendance attendance = attendanceService.checkOut(attendanceId);
-            log.info("签退成功: {}", attendance);
-            return Result.success(attendance);
-        } catch (Exception e) {
-            log.error("签退失败, attendanceId: {}", attendanceId, e);
-            return Result.error("签退失败：" + e.getMessage());
-        }
+        Attendance target = attendanceRepository.findById(attendanceId)
+                .orElseThrow(() -> BusinessException.notFound("考勤记录不存在"));
+        Long ownerId = target.getEmployee() == null ? null : target.getEmployee().getId();
+        SessionUser.requireAccessEmployee(request, ownerId);
+        return Result.success(attendanceService.checkOut(attendanceId));
     }
 
-    /**
-     * 获取员工考勤记录（本人或管理员）
-     * @param employeeId 员工ID
-     * @return 考勤记录列表
-     */
     @GetMapping("/employee/{employeeId}")
     @ApiOperation("获取员工考勤记录")
     public Result<List<Attendance>> getEmployeeAttendance(@PathVariable Long employeeId,
                                                           HttpServletRequest request) {
-        if (!SessionUser.canAccessEmployee(request, employeeId)) {
-            return Result.error(403, "无权查看其他员工的考勤记录");
+        SessionUser.requireAccessEmployee(request, employeeId);
+        return Result.success(attendanceService.findByEmployeeId(employeeId));
+    }
+
+    /**
+     * 月度考勤汇总：应出勤、实际出勤、迟到、早退、旷工、各类请假、加班小时
+     */
+    @GetMapping("/summary")
+    @ApiOperation("月度考勤汇总")
+    public Result<AttendanceSummaryDTO> summary(@RequestParam(required = false) Long employeeId,
+                                                @RequestParam(required = false) Integer year,
+                                                @RequestParam(required = false) Integer month,
+                                                HttpServletRequest request) {
+        LocalDate now = LocalDate.now();
+        int y = year == null ? now.getYear() : year;
+        int m = month == null ? now.getMonthValue() : month;
+        Long targetId = employeeId;
+        if (targetId == null) {
+            targetId = SessionUser.currentEmployeeId(request);
         }
-        try {
-            log.info("获取员工考勤记录, employeeId: {}", employeeId);
-            List<Attendance> attendances = attendanceService.findByEmployeeId(employeeId);
-            return Result.success(attendances);
-        } catch (Exception e) {
-            log.error("获取考勤记录失败, employeeId: {}", employeeId, e);
-            return Result.error("获取考勤记录失败：" + e.getMessage());
+        if (targetId == null) {
+            throw BusinessException.badRequest("请指定员工");
         }
+        SessionUser.requireAccessEmployee(request, targetId);
+        Employee employee = employeeRepository.findById(targetId)
+                .orElseThrow(() -> BusinessException.notFound("员工不存在"));
+        return Result.success(attendanceStatsService.buildForEmployee(employee, y, m));
+    }
+
+    /**
+     * 全员月度考勤汇总（管理员）
+     */
+    @GetMapping("/summary/all")
+    @ApiOperation("全员月度考勤汇总")
+    public Result<List<AttendanceSummaryDTO>> summaryAll(@RequestParam(required = false) Integer year,
+                                                         @RequestParam(required = false) Integer month,
+                                                         HttpServletRequest request) {
+        SessionUser.requireAdmin(request);
+        LocalDate now = LocalDate.now();
+        int y = year == null ? now.getYear() : year;
+        int m = month == null ? now.getMonthValue() : month;
+        List<Employee> employees = employeeRepository.findByIsDel(false);
+        Map<Long, AttendanceSummaryDTO> map = attendanceStatsService.buildForEmployees(employees, y, m);
+        List<AttendanceSummaryDTO> result = new ArrayList<>();
+        for (Employee employee : employees) {
+            AttendanceSummaryDTO summary = map.get(employee.getId());
+            if (summary != null) {
+                result.add(summary);
+            }
+        }
+        return Result.success(result);
+    }
+
+    /**
+     * 每日明细：这个月每一天是正常 / 迟到 / 早退 / 旷工 / 请假
+     */
+    @GetMapping("/daily")
+    @ApiOperation("月度每日考勤明细")
+    public Result<List<DailyAttendanceDTO>> daily(@RequestParam(required = false) Long employeeId,
+                                                  @RequestParam(required = false) Integer year,
+                                                  @RequestParam(required = false) Integer month,
+                                                  HttpServletRequest request) {
+        LocalDate now = LocalDate.now();
+        int y = year == null ? now.getYear() : year;
+        int m = month == null ? now.getMonthValue() : month;
+        Long targetId = employeeId == null ? SessionUser.currentEmployeeId(request) : employeeId;
+        if (targetId == null) {
+            throw BusinessException.badRequest("请指定员工");
+        }
+        SessionUser.requireAccessEmployee(request, targetId);
+        Employee employee = employeeRepository.findById(targetId)
+                .orElseThrow(() -> BusinessException.notFound("员工不存在"));
+        return Result.success(attendanceStatsService.dailyDetail(employee, y, m));
     }
 }

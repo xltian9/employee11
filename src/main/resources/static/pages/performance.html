@@ -1,99 +1,147 @@
-<div class="container-fluid">
-    <h2 class="mb-4">月度工资报告</h2>
-
-    <div class="row g-2 align-items-end mb-3">
-        <div class="col-auto">
-            <label class="form-label" for="reportYear">年份</label>
-            <input type="number" id="reportYear" class="form-control" min="2000" max="2100" style="width: 120px;">
-        </div>
-        <div class="col-auto">
-            <label class="form-label" for="reportMonth">月份</label>
-            <select id="reportMonth" class="form-select" style="width: 120px;"></select>
-        </div>
-        <div class="col-auto">
-            <button class="btn btn-primary" onclick="loadPerformances()">查询</button>
-        </div>
-        <div class="col-auto ms-auto">
-            <button class="btn btn-outline-success me-2" onclick="exportReport()">导出 Excel</button>
-            <button class="btn btn-success" onclick="showCreateModal()">录入业绩</button>
-        </div>
+<div class="page-head">
+    <div>
+        <h2 class="page-title">业绩工资</h2>
+        <p class="page-desc">季度绩效（业绩 60% + 能力 20% + 态度 20% − 出勤扣分）决定奖金系数，逐月平摊发放</p>
     </div>
+    <div class="toolbar">
+        <label for="reportYear" style="font-size:13px;color:#475569;">年月</label>
+        <input type="number" id="reportYear" min="2000" max="2100" value="2026"
+               style="width:96px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+        <select id="reportMonth"
+                style="width:100px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;"></select>
+        <button class="btn btn-ghost" onclick="loadPerformances()">查询</button>
+        <button class="btn btn-ghost" onclick="exportReport()">导出 Excel</button>
+        <button class="btn" onclick="showCreateModal()">录入业绩</button>
+    </div>
+</div>
 
-    <table id="performanceTable" class="table table-striped table-bordered align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>员工 ID</th>
-                <th>员工姓名</th>
-                <th>员工部门</th>
-                <th>员工岗位</th>
-                <th>年份</th>
-                <th>月份</th>
-                <th>当月工作日期</th>
-                <th>月薪</th>
-                <th>当月请假天数</th>
-                <th>季度绩效评分</th>
-                <th>奖金</th>
-                <th>实际工资</th>
-                <th>操作</th>
-            </tr>
-        </thead>
-        <tbody id="performanceBody">
-            <!-- 数据通过 performance.js 动态填充 -->
-        </tbody>
-        <tfoot id="performanceFoot" class="table-light"></tfoot>
-    </table>
+<div class="stat-grid">
+    <div class="stat">
+        <div class="stat-label">本月应发合计</div>
+        <div class="stat-value" id="statGrossPay">-</div>
+        <div class="stat-foot">扣款前、含加班与奖金</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">本月实发合计</div>
+        <div class="stat-value" id="statNetPay">-</div>
+        <div class="stat-foot">扣除社保、公积金、个税</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">奖金合计</div>
+        <div class="stat-value" id="statBonus">-</div>
+        <div class="stat-foot">按季度等级 ÷3 平摊</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">已录入绩效</div>
+        <div class="stat-value" id="statPerformance">-</div>
+        <div class="stat-foot">缺绩效则奖金系数为 0</div>
+    </div>
+</div>
 
-    <p class="text-muted small">
-        奖金规则：季度绩效评分 ≥90 发 20%，≥80 发 15%，≥70 发 10%，≥60 发 5%，其余或无业绩记录不发奖金；
-        实际工资 = 月薪 − 月薪 ÷ 当月工作日 × 当月请假天数 + 奖金。
-    </p>
+<div class="card">
+    <div class="card-head">
+        <h3 class="card-title">工资明细</h3>
+        <span class="hint">左侧固定列，可横向滚动查看全部考勤与扣款明细</span>
+    </div>
+    <div class="table-wrap">
+        <table class="table compact">
+            <thead>
+                <tr>
+                    <th class="sticky-col">员工</th>
+                    <th>部门 / 岗位</th>
+                    <th class="num">工作日</th>
+                    <th class="num">出勤</th>
+                    <th class="num">迟到</th>
+                    <th class="num">早退</th>
+                    <th class="num">旷工</th>
+                    <th class="num">请假</th>
+                    <th class="num">加班(h)</th>
+                    <th class="num">月薪</th>
+                    <th class="num">请假扣</th>
+                    <th class="num">旷工扣</th>
+                    <th class="num">迟到扣</th>
+                    <th class="num">加班费</th>
+                    <th class="num">绩效</th>
+                    <th class="num">奖金</th>
+                    <th class="num">补发</th>
+                    <th class="num">扣款</th>
+                    <th class="num">应发</th>
+                    <th class="num">社保</th>
+                    <th class="num">公积金</th>
+                    <th class="num">个税</th>
+                    <th class="num">实发</th>
+                    <th style="width:120px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="performanceBody">
+                <tr class="empty-row"><td colspan="24">正在加载…</td></tr>
+            </tbody>
+            <tfoot id="performanceFoot"></tfoot>
+        </table>
+    </div>
+</div>
 
-    <!-- 录入业绩浮层（不依赖 Bootstrap 的 modal JS） -->
-    <div id="performanceModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 1080; overflow: auto;">
-        <div style="max-width: 560px; margin: 60px auto; background: #fff; border-radius: 8px; padding: 24px;">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0" id="modalTitle">录入业绩</h4>
-                <button type="button" class="btn-close" aria-label="关闭" onclick="closeModal()"></button>
+<div class="card">
+    <div class="card-head">
+        <h3 class="card-title">奖金计算规则</h3>
+    </div>
+    <div class="card-body hint" style="line-height:1.9;">
+        综合得分 = 业绩分 × 60% + 能力分 × 20% + 态度分 × 20% − 出勤扣分（旷工每天 2 分、迟到每次 0.5 分，最多扣 20 分）。<br>
+        等级与月度奖金系数（季度奖金 ÷ 3 平摊到每月）：S（≥90）25% ｜ A（≥80）18% ｜ B（≥70）12% ｜ C（≥60）6% ｜ D（&lt;60）0。<br>
+        实发 = 月薪 − 请假扣款 − 旷工扣款 − 迟到扣款 + 加班费 + 奖金 + 补发 − 扣款 − 社保 − 公积金 − 个税。
+    </div>
+</div>
+
+<div class="modal-mask" id="performanceModal" hidden>
+    <div class="modal-panel">
+        <div class="modal-head">
+            <span id="performanceModalTitle">录入业绩</span>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="performanceId">
+            <div class="field">
+                <label for="perfEmployeeId">员工</label>
+                <select id="perfEmployeeId"></select>
             </div>
-            <form id="performanceForm" class="row g-3" onsubmit="return false;">
-                <input type="hidden" id="performanceId">
-                <div class="col-md-12">
-                    <label for="perfEmployeeId" class="form-label">员工</label>
-                    <select id="perfEmployeeId" class="form-select" required></select>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="perfYear">年份</label>
+                    <input type="number" id="perfYear" min="2000" max="2100">
                 </div>
-                <div class="col-md-4">
-                    <label for="perfYear" class="form-label">年份</label>
-                    <input type="number" id="perfYear" class="form-control" min="2000" max="2100" required>
-                </div>
-                <div class="col-md-4">
-                    <label for="perfQuarter" class="form-label">季度</label>
-                    <select id="perfQuarter" class="form-select">
-                        <option value="1">第一季度</option>
-                        <option value="2">第二季度</option>
-                        <option value="3">第三季度</option>
-                        <option value="4">第四季度</option>
+                <div class="field">
+                    <label for="perfQuarter">季度</label>
+                    <select id="perfQuarter">
+                        <option value="1">第 1 季度</option>
+                        <option value="2">第 2 季度</option>
+                        <option value="3">第 3 季度</option>
+                        <option value="4">第 4 季度</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label for="perfScore" class="form-label">评分（0-100）</label>
-                    <input type="number" id="perfScore" class="form-control" step="0.1" min="0" max="100" required>
+            </div>
+            <div class="grid-3">
+                <div class="field">
+                    <label for="perfScore">业绩分（60%）</label>
+                    <input type="number" id="perfScore" min="0" max="100" step="0.1">
                 </div>
-                <div class="col-md-12">
-                    <label for="perfEvaluation" class="form-label">评价</label>
-                    <textarea id="perfEvaluation" class="form-control" rows="3" required></textarea>
+                <div class="field">
+                    <label for="perfAbility">能力分（20%）</label>
+                    <input type="number" id="perfAbility" min="0" max="100" step="0.1">
                 </div>
-                <div class="col-md-12">
-                    <label for="perfStatus" class="form-label">状态</label>
-                    <select id="perfStatus" class="form-select">
-                        <option value="1">已确认</option>
-                        <option value="0">待确认</option>
-                    </select>
+                <div class="field">
+                    <label for="perfAttitude">态度分（20%）</label>
+                    <input type="number" id="perfAttitude" min="0" max="100" step="0.1">
                 </div>
-                <div class="col-md-12 d-flex gap-2">
-                    <button type="button" class="btn btn-primary" onclick="savePerformance()">保存</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
-                </div>
-            </form>
+            </div>
+            <div class="field">
+                <label for="perfEvaluation">评价</label>
+                <textarea id="perfEvaluation" rows="3" placeholder="本季度工作评价…"></textarea>
+            </div>
+            <p class="hint">综合得分与等级由后端根据出勤情况自动计算，无需手工填写。</p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+            <button class="btn" onclick="savePerformance()">保存</button>
         </div>
     </div>
 </div>

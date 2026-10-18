@@ -1,64 +1,60 @@
-<div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col">
-            <h3>部门管理</h3>
-        </div>
-        <div class="col text-end">
-            <button class="btn btn-primary" onclick="showAddDepartmentModal()">
-                <i class="bi bi-plus"></i> 添加部门
-            </button>
-        </div>
+<div class="page-head">
+    <div>
+        <h2 class="page-title">部门管理</h2>
+        <p class="page-desc">维护组织架构，部门名称会作为员工归属部门的取值</p>
     </div>
-
-    <div class="card">
-        <div class="card-body">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>部门名称</th>
-                        <th>描述</th>
-                        <th>负责人</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="departmentTableBody">
-                    <!-- 部门数据将在这里动态加载 -->
-                </tbody>
-            </table>
-        </div>
+    <div class="toolbar">
+        <input type="text" id="departmentKeyword" placeholder="搜索部门名称"
+               style="width:200px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;">
+        <button class="btn btn-ghost" onclick="searchDepartments()">搜索</button>
+        <button class="btn btn-primary" onclick="showAddDepartmentModal()">新建部门</button>
     </div>
 </div>
 
-<!-- 添加/编辑部门模态框 -->
-<div class="modal fade" id="departmentModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="departmentModalTitle">添加部门</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="card">
+    <div class="table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:70px;">序号</th>
+                    <th>部门名称</th>
+                    <th>负责人</th>
+                    <th>描述</th>
+                    <th style="width:170px;">创建时间</th>
+                    <th style="width:130px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="departmentTableBody">
+                <tr class="empty-row"><td colspan="6">正在加载…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-mask" id="departmentModal" hidden>
+    <div class="modal-panel">
+        <div class="modal-head">
+            <span id="departmentModalTitle">新建部门</span>
+            <button class="modal-close" onclick="hideDepartmentModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="departmentId">
+            <div class="field">
+                <label for="departmentName">部门名称</label>
+                <input type="text" id="departmentName" maxlength="50" placeholder="例如：技术部">
             </div>
-            <div class="modal-body">
-                <form id="departmentForm">
-                    <input type="hidden" id="departmentId">
-                    <div class="mb-3">
-                        <label for="departmentName" class="form-label">部门名称</label>
-                        <input type="text" class="form-control" id="departmentName" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="departmentDescription" class="form-label">描述</label>
-                        <textarea class="form-control" id="departmentDescription" rows="3"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="departmentManager" class="form-label">负责人</label>
-                        <input type="text" class="form-control" id="departmentManager">
-                    </div>
-                </form>
+            <div class="field">
+                <label for="departmentManager">负责人</label>
+                <input type="text" id="departmentManager" maxlength="50" placeholder="选填">
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="saveDepartment()">保存</button>
+            <div class="field">
+                <label for="departmentDescription">描述</label>
+                <textarea id="departmentDescription" rows="3" maxlength="200" placeholder="选填"></textarea>
             </div>
         </div>
+        <div class="modal-foot">
+            <button class="btn btn-ghost" onclick="hideDepartmentModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveDepartment()">保存</button>
+        </div>
     </div>
-</div> 
+</div>
