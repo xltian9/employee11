@@ -27,4 +27,11 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
      * @return 请假记录列表
      */
     List<Leave> findByStatusOrderByCreateTimeDesc(Integer status);
+
+    /**
+     * 按审批状态查找请假记录（工资报告统计用）
+     * @param status 审批状态
+     * @return 请假记录列表
+     */
+    List<Leave> findByStatus(Integer status);
 } 

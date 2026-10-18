@@ -2,6 +2,7 @@ package com.limiti.employee.controller;
 
 import com.limiti.employee.common.Result;
 import com.limiti.employee.entity.Department;
+import com.limiti.employee.security.SessionUser;
 import com.limiti.employee.service.DepartmentService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -9,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
@@ -26,7 +28,7 @@ public class DepartmentController {
     private DepartmentService departmentService;
 
     /**
-     * 获取所有部门
+     * 获取所有部门（登录即可，员工页面下拉框会用到）
      */
     @GetMapping
     @ApiOperation("获取所有部门")
@@ -42,11 +44,15 @@ public class DepartmentController {
     }
 
     /**
-     * 创建部门
+     * 创建部门（仅管理员）
      */
     @PostMapping
     @ApiOperation("创建部门")
-    public Result<Department> createDepartment(@RequestBody Department department) {
+    public Result<Department> createDepartment(@RequestBody Department department,
+                                               HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "只有管理员才能创建部门");
+        }
         try {
             log.info("创建部门: {}", department.getName());
             Department created = departmentService.save(department);
@@ -58,13 +64,17 @@ public class DepartmentController {
     }
 
     /**
-     * 更新部门
+     * 更新部门（仅管理员）
      */
     @PutMapping("/{id}")
     @ApiOperation("更新部门")
     public Result<Department> updateDepartment(
             @PathVariable Long id,
-            @RequestBody Department department) {
+            @RequestBody Department department,
+            HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "只有管理员才能修改部门");
+        }
         try {
             log.info("更新部门, id: {}", id);
             Department updated = departmentService.update(id, department);
@@ -76,11 +86,14 @@ public class DepartmentController {
     }
 
     /**
-     * 删除部门
+     * 删除部门（仅管理员）
      */
     @DeleteMapping("/{id}")
     @ApiOperation("删除部门")
-    public Result<Void> deleteDepartment(@PathVariable Long id) {
+    public Result<Void> deleteDepartment(@PathVariable Long id, HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "只有管理员才能删除部门");
+        }
         try {
             log.info("删除部门, id: {}", id);
             departmentService.delete(id);
@@ -92,7 +105,7 @@ public class DepartmentController {
     }
 
     /**
-     * 搜索部门
+     * 搜索部门（登录即可）
      */
     @GetMapping("/search")
     @ApiOperation("搜索部门")
@@ -108,7 +121,7 @@ public class DepartmentController {
     }
 
     /**
-     * 根据ID获取部门
+     * 根据ID获取部门（登录即可）
      */
     @GetMapping("/{id}")
     @ApiOperation("根据ID获取部门")
@@ -122,4 +135,4 @@ public class DepartmentController {
             return Result.error("获取部门信息失败：" + e.getMessage());
         }
     }
-} 
+}

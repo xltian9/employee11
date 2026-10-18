@@ -1,45 +1,25 @@
+/** 每页条数 */
+const EMPLOYEE_PAGE_SIZE = 10;
+/** 当前页码（从 1 开始） */
+let employeePage = 1;
+/** 总记录数 / 总页数 */
+let employeeTotal = 0;
+let employeePages = 0;
+
 /**
- * 筛选员工列表
+ * 筛选员工列表（条件变化时回到第 1 页）
  */
 function filterEmployees() {
-    // 获取搜索输入框中的关键词，并去除首尾空格
-    const keyword = document.getElementById('searchInput').value.trim();
-    // 获取部门筛选下拉框中选中的部门
-    const department = document.getElementById('departmentFilter').value;
-    // 获取员工状态筛选下拉框中选中的状态
-    const status = document.getElementById('statusFilter').value;
-
-    let url = '/api/employees/search?';
-    // 创建 URLSearchParams 对象，用于构建请求参数
-    const params = new URLSearchParams();
-    
-    if (keyword) params.append('keyword', keyword);
-    if (department) params.append('department', department);
-    if (status) params.append('status', status);
-
-    // 发送 GET 请求，将基础 URL 和请求参数拼接后作为请求地址
-    fetch(url + params.toString())
-        .then(response => response.json())
-        .then(data => {
-            if (data.code === 200) {
-                displayEmployees(data.data || []);
-            } else {
-                showError('搜索失败：' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Search error:', error);
-            showError('搜索失败：' + error.message);
-        });
+    employeePage = 1;
+    loadEmployees(1);
 }
 
 /**
- * 加载员工列表
+ * 加载员工列表（服务端分页）
+ *
+ * @param {number} [page] 目标页码，不传则沿用当前页
  */
-function loadEmployees() {
-    console.log('Loading employees...');
-
-    
+function loadEmployees(page) {
     // 确保表格主体元素存在
     const tableBody = document.getElementById('employeeTableBody');
     if (!tableBody) {
@@ -47,23 +27,21 @@ function loadEmployees() {
         return;
     }
 
-    // 获取筛选条件
-    const department = document.getElementById('departmentFilter')?.value;
-    const status = document.getElementById('statusFilter')?.value;
-    const keyword = document.getElementById('searchInput')?.value?.trim();
-
-    // 构建URL
-    let url = '/api/employees';
-    
-    // 如果有任何搜索条件，使用search端点
-    if (keyword || department || status) {
-        url += '/search';
-        const params = new URLSearchParams();
-        if (keyword) params.append('keyword', keyword);
-        if (department) params.append('department', department);
-        if (status) params.append('status', status === 'true');
-        url += '?' + params.toString();
+    if (page && page > 0) {
+        employeePage = page;
     }
+
+    // 获取筛选条件
+    const department = document.getElementById('departmentFilter')?.value || '';
+    const status = document.getElementById('statusFilter')?.value || '';
+    const keyword = document.getElementById('searchInput')?.value?.trim() || '';
+
+    const params = new URLSearchParams();
+    params.append('page', employeePage);
+    params.append('size', EMPLOYEE_PAGE_SIZE);
+    if (keyword) params.append('keyword', keyword);
+    if (department) params.append('department', department);
+    if (status) params.append('status', status);
 
     // 显示加载状态
     tableBody.innerHTML = '<tr><td colspan="10" class="text-center">加载中...</td></tr>';
@@ -71,7 +49,7 @@ function loadEmployees() {
     // 加载部门列表
     loadDepartmentOptions();
 
-    fetch(url)
+    fetch('/api/employees/page?' + params.toString(), { credentials: 'same-origin' })
         .then(response => {
             if (!response.ok) {
                 throw new Error('网络请求失败');
@@ -79,11 +57,20 @@ function loadEmployees() {
             return response.json();
         })
         .then(data => {
-            console.log('Employees response:', data);
             if (data.code === 200) {
-                displayEmployees(data.data || []);
+                const pageData = data.data || {};
+                employeeTotal = pageData.total || 0;
+                employeePages = pageData.pages || 0;
+                // 删除最后一页的最后一条后，页码可能越界，自动回退
+                if (employeePages > 0 && employeePage > employeePages) {
+                    employeePage = employeePages;
+                    loadEmployees(employeePage);
+                    return;
+                }
+                displayEmployees(pageData.list || []);
+                renderPager();
             } else {
-                showError('加载员工列表失败：' + data.message);
+                showError('加载员工列表失败：' + (data.msg || data.message));
             }
         })
         .catch(error => {
@@ -92,6 +79,41 @@ function loadEmployees() {
             // 显示错误状态
             tableBody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">加载失败</td></tr>';
         });
+}
+
+/**
+ * 跳转到指定页
+ */
+function goEmployeePage(page) {
+    if (page < 1 || (employeePages > 0 && page > employeePages)) {
+        return;
+    }
+    loadEmployees(page);
+}
+
+/**
+ * 渲染分页条
+ */
+function renderPager() {
+    const pager = document.getElementById('employeePager');
+    if (!pager) {
+        return;
+    }
+    if (!employeePages || employeePages <= 1) {
+        pager.innerHTML = employeeTotal
+            ? `<span class="text-muted">共 ${employeeTotal} 条记录</span>`
+            : '';
+        return;
+    }
+    const disabledFirst = employeePage <= 1 ? 'disabled' : '';
+    const disabledLast = employeePage >= employeePages ? 'disabled' : '';
+    pager.innerHTML = `
+        <span class="text-muted me-3">共 ${employeeTotal} 条记录，第 ${employeePage}/${employeePages} 页</span>
+        <button class="btn btn-sm btn-outline-secondary me-1" ${disabledFirst} onclick="goEmployeePage(1)">首页</button>
+        <button class="btn btn-sm btn-outline-secondary me-1" ${disabledFirst} onclick="goEmployeePage(${employeePage - 1})">上一页</button>
+        <button class="btn btn-sm btn-outline-secondary me-1" ${disabledLast} onclick="goEmployeePage(${employeePage + 1})">下一页</button>
+        <button class="btn btn-sm btn-outline-secondary" ${disabledLast} onclick="goEmployeePage(${employeePages})">末页</button>
+    `;
 }
 
 /**

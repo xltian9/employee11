@@ -2,12 +2,14 @@ package com.limiti.employee.controller;
 
 import com.limiti.employee.common.Result;
 import com.limiti.employee.entity.Admin;
+import com.limiti.employee.security.SessionUser;
 import com.limiti.employee.service.AdminService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 
 /**
@@ -30,7 +32,10 @@ public class AdminController {
 
     @GetMapping("/info")
     @ApiOperation("获取管理员信息")
-    public Result<Admin> getInfo() {
+    public Result<Admin> getInfo(HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "无权访问");
+        }
         Admin admin = new Admin();
         admin.setUsername("admin");
         admin.setStatus(true);
@@ -39,14 +44,20 @@ public class AdminController {
 
     @PostMapping("/add")
     @ApiOperation("添加管理员")
-    public Result<Admin> addAdmin(@Valid @RequestBody Admin admin) {
+    public Result<Admin> addAdmin(@Valid @RequestBody Admin admin, HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "只有管理员才能新增管理员");
+        }
         Admin addedAdmin = adminService.addAdmin(admin);
         return Result.success(addedAdmin);
     }
 
     @PutMapping("/update")
     @ApiOperation("修改管理员信息")
-    public Result<Admin> updateAdmin(@Valid @RequestBody Admin admin) {
+    public Result<Admin> updateAdmin(@Valid @RequestBody Admin admin, HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "只有管理员才能修改管理员信息");
+        }
         Admin updatedAdmin = adminService.updateAdmin(admin);
         return Result.success(updatedAdmin);
     }

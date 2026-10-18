@@ -2,6 +2,8 @@ package com.limiti.employee.controller;
 
 import com.limiti.employee.common.Result;
 import com.limiti.employee.entity.Attendance;
+import com.limiti.employee.repository.AttendanceRepository;
+import com.limiti.employee.security.SessionUser;
 import com.limiti.employee.service.AttendanceService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -9,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
@@ -22,19 +25,25 @@ import java.util.List;
 @RequestMapping("/api/attendance")
 @Api(tags = "考勤管理接口")
 public class AttendanceController {
-    
+
     /** 考勤服务 */
     @Autowired
     private AttendanceService attendanceService;
 
+    @Autowired
+    private AttendanceRepository attendanceRepository;
+
     /**
-     * 员工签到
+     * 员工签到（本人或管理员）
      * @param employeeId 员工ID
      * @return 签到记录
      */
     @PostMapping("/check-in/{employeeId}")
     @ApiOperation("员工签到")
-    public Result<Attendance> checkIn(@PathVariable Long employeeId) {
+    public Result<Attendance> checkIn(@PathVariable Long employeeId, HttpServletRequest request) {
+        if (!SessionUser.canAccessEmployee(request, employeeId)) {
+            return Result.error(403, "无权为其他员工签到");
+        }
         try {
             log.info("员工签到请求, employeeId: {}", employeeId);
             Attendance attendance = attendanceService.checkIn(employeeId);
@@ -47,15 +56,22 @@ public class AttendanceController {
     }
 
     /**
-     * 员工签退
+     * 员工签退（仅限本人记录，管理员放行）
      * @param attendanceId 考勤记录ID
      * @return 更新后的考勤记录
      */
     @PostMapping("/check-out/{attendanceId}")
     @ApiOperation("员工签退")
-    @ResponseBody
-    public Result<Attendance> checkOut(@PathVariable Long attendanceId) {
+    public Result<Attendance> checkOut(@PathVariable Long attendanceId, HttpServletRequest request) {
         try {
+            Attendance target = attendanceRepository.findById(attendanceId).orElse(null);
+            if (target == null) {
+                return Result.error(404, "考勤记录不存在");
+            }
+            Long ownerId = target.getEmployee() == null ? null : target.getEmployee().getId();
+            if (!SessionUser.canAccessEmployee(request, ownerId)) {
+                return Result.error(403, "无权为其他员工签退");
+            }
             log.info("员工签退请求, attendanceId: {}", attendanceId);
             Attendance attendance = attendanceService.checkOut(attendanceId);
             log.info("签退成功: {}", attendance);
@@ -67,13 +83,17 @@ public class AttendanceController {
     }
 
     /**
-     * 获取员工考勤记录
+     * 获取员工考勤记录（本人或管理员）
      * @param employeeId 员工ID
      * @return 考勤记录列表
      */
     @GetMapping("/employee/{employeeId}")
     @ApiOperation("获取员工考勤记录")
-    public Result<List<Attendance>> getEmployeeAttendance(@PathVariable Long employeeId) {
+    public Result<List<Attendance>> getEmployeeAttendance(@PathVariable Long employeeId,
+                                                          HttpServletRequest request) {
+        if (!SessionUser.canAccessEmployee(request, employeeId)) {
+            return Result.error(403, "无权查看其他员工的考勤记录");
+        }
         try {
             log.info("获取员工考勤记录, employeeId: {}", employeeId);
             List<Attendance> attendances = attendanceService.findByEmployeeId(employeeId);
@@ -83,4 +103,4 @@ public class AttendanceController {
             return Result.error("获取考勤记录失败：" + e.getMessage());
         }
     }
-} 
+}

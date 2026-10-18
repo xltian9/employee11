@@ -51,10 +51,12 @@ public class Performance {
     @Column(name = "update_time", nullable = false, columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'")
     private Date updateTime;
 
-    @Column(name = "month", nullable = false)
+    /** 历史字段：月度业绩已统一改为按季度记录，可为空 */
+    @Column(name = "month")
     private Integer month;
 
-    @Column(name = "work_score", nullable = false)
+    /** 历史字段：工作评分的旧字段，可为空 */
+    @Column(name = "work_score")
     private Integer workScore;
 
     @PrePersist

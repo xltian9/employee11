@@ -2,13 +2,25 @@
 let shouldRefreshPersonalInfo = false;
 // 记录是否是首次加载
 let isFirstLoad = true;
+// 当前登录员工 ID（最终以服务端 /api/auth/me 为准，防止前端篡改）
+let employeeId = sessionStorage.getItem('employeeId');
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', function() {
-    // 默认显示个人信息页面
-    showContent('personal-info');
-    // 首次加载完成，将标志位设为 false
-    isFirstLoad = false;
+    if (window.AuthGuard) {
+        // 先校验登录态并同步真实员工 ID，再加载页面内容
+        AuthGuard.require('employee').then(function(me) {
+            if (me && me.id) {
+                employeeId = me.id;
+                sessionStorage.setItem('employeeId', me.id);
+            }
+            showContent('personal-info');
+            isFirstLoad = false;
+        });
+    } else {
+        showContent('personal-info');
+        isFirstLoad = false;
+    }
 });
 
 // 加载员工信息
@@ -68,8 +80,221 @@ function displayEmployeeInfo(employee) {
             <p><strong><input type="file" id="photoUpload" accept="image/*"></p>
 			<button id="refreshBtn" onclick="uploadPhoto()">上传头像</button>
 		</div>
+        <div class="mt-3">
+            <button class="btn btn-outline-secondary btn-sm" onclick="showChangePassword()">修改登录密码</button>
+        </div>
+        <div id="changePasswordBox"></div>
     `;
     document.getElementById('employeeInfo').innerHTML = infoHtml;
+    loadEmployeePhoto();
+}
+
+// 加载当前登录员工的头像
+function loadEmployeePhoto() {
+    const img = document.getElementById('employeePhoto');
+    if (!img || !employeeId) {
+        return;
+    }
+    fetch(`/api/employees/${employeeId}/photo`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('无头像');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            img.src = URL.createObjectURL(blob);
+        })
+        .catch(() => {
+            // 没有头像时保持空白
+            img.removeAttribute('src');
+        });
+}
+
+// 展开修改密码表单
+function showChangePassword() {
+    const box = document.getElementById('changePasswordBox');
+    if (!box) {
+        return;
+    }
+    box.innerHTML = `
+        <div class="border rounded p-3 mt-3" style="max-width: 360px;">
+            <div class="mb-2"><input type="password" class="form-control" id="oldPassword" placeholder="原密码"></div>
+            <div class="mb-2"><input type="password" class="form-control" id="newPassword" placeholder="新密码（至少 6 位）"></div>
+            <div class="mb-2"><input type="password" class="form-control" id="confirmPassword" placeholder="确认新密码"></div>
+            <button class="btn btn-primary btn-sm" onclick="changePassword()">确认修改</button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('changePasswordBox').innerHTML=''">取消</button>
+        </div>`;
+}
+
+// 提交修改密码
+function changePassword() {
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (!oldPassword || !newPassword) {
+        showError('请填写原密码和新密码');
+        return;
+    }
+    if (newPassword.length < 6) {
+        showError('新密码至少 6 位');
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        showError('两次输入的新密码不一致');
+        return;
+    }
+
+    fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ oldPassword: oldPassword, newPassword: newPassword })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.code === 200) {
+            document.getElementById('changePasswordBox').innerHTML = '';
+            showSuccess('密码修改成功，请牢记新密码');
+        } else {
+            showError(result.msg || '修改失败');
+        }
+    })
+    .catch(error => {
+        console.error('Change password error:', error);
+        showError('修改失败：' + error.message);
+    });
+}
+
+// ---------------- 我的工资 ----------------
+
+var salaryFiltersReady = false;
+
+function formatMoney(value) {
+    var number = Number(value === null || value === undefined || value === '' ? 0 : value);
+    if (isNaN(number)) {
+        return '0.00';
+    }
+    return number.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function initSalaryFilters() {
+    var yearInput = document.getElementById('salaryYear');
+    var monthSelect = document.getElementById('salaryMonth');
+    if (!yearInput || !monthSelect || salaryFiltersReady) {
+        return;
+    }
+    var now = new Date();
+    yearInput.value = String(now.getFullYear());
+    monthSelect.innerHTML = '';
+    for (var m = 1; m <= 12; m++) {
+        var option = document.createElement('option');
+        option.value = String(m);
+        option.textContent = m + ' 月';
+        monthSelect.appendChild(option);
+    }
+    monthSelect.value = String(now.getMonth() + 1);
+    salaryFiltersReady = true;
+}
+
+function salaryPeriod() {
+    initSalaryFilters();
+    var year = document.getElementById('salaryYear').value;
+    var month = document.getElementById('salaryMonth').value;
+    return { year: year, month: month };
+}
+
+function salaryCard(label, value) {
+    return '<div class="col-6 col-md-3"><div class="card text-center h-100"><div class="card-body py-2">'
+        + '<div class="text-muted small">' + label + '</div>'
+        + '<div class="fs-5">' + value + '</div></div></div></div>';
+}
+
+function renderSalaryRow(row) {
+    var tbody = document.getElementById('salaryTableBody');
+    var cards = document.getElementById('salaryCards');
+    if (!tbody || !cards) {
+        return;
+    }
+    if (!row) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">暂无工资数据</td></tr>';
+        cards.innerHTML = '';
+        return;
+    }
+    var wage = Number(row.wage || 0);
+    var bonus = Number(row.bonus || 0);
+    var nowWage = Number(row.nowWage || 0);
+    var deduction = Math.max(0, wage - nowWage + bonus);
+    var scoreText = (row.performanceScore === null || row.performanceScore === undefined) ? '未录入' : row.performanceScore;
+    var leavesDay = (row.leavesDay === null || row.leavesDay === undefined) ? 0 : row.leavesDay;
+    tbody.innerHTML = '<tr>'
+        + '<td>' + row.yearNum + '</td>'
+        + '<td>' + row.monthNum + '</td>'
+        + '<td>' + row.workDay + '</td>'
+        + '<td>¥ ' + formatMoney(row.wage) + '</td>'
+        + '<td>' + leavesDay + '</td>'
+        + '<td>' + scoreText + '</td>'
+        + '<td>¥ ' + formatMoney(row.bonus) + '</td>'
+        + '<td class="fw-bold">¥ ' + formatMoney(row.nowWage) + '</td>'
+        + '</tr>';
+    cards.innerHTML = salaryCard('月薪', '¥ ' + formatMoney(wage))
+        + salaryCard('绩效奖金', '¥ ' + formatMoney(bonus))
+        + salaryCard('请假扣款', '¥ ' + formatMoney(deduction))
+        + salaryCard('实际工资', '¥ ' + formatMoney(nowWage));
+}
+
+function loadMySalary() {
+    var period = salaryPeriod();
+    fetch('/api/report/my?year=' + encodeURIComponent(period.year) + '&month=' + encodeURIComponent(period.month))
+        .then(response => response.json())
+        .then(result => {
+            if (!result || result.code !== 200 || !result.data) {
+                renderSalaryRow(null);
+                showError(result && result.msg ? result.msg : '查询工资失败');
+                return;
+            }
+            renderSalaryRow(result.data);
+        })
+        .catch(error => {
+            console.error('Load salary error:', error);
+            renderSalaryRow(null);
+            showError('查询工资失败，请稍后重试');
+        });
+}
+
+function exportMySalary() {
+    var period = salaryPeriod();
+    var month = period.month;
+    if (month.length < 2) {
+        month = '0' + month;
+    }
+    fetch('/api/report/my/export?year=' + encodeURIComponent(period.year) + '&month=' + encodeURIComponent(period.month))
+        .then(response => {
+            var type = response.headers.get('Content-Type') || '';
+            if (type.indexOf('spreadsheetml') === -1) {
+                return response.json().then(result => {
+                    showError(result && result.msg ? result.msg : '导出失败');
+                });
+            }
+            return response.blob().then(blob => {
+                var link = document.createElement('a');
+                var objectUrl = URL.createObjectURL(blob);
+                link.href = objectUrl;
+                link.download = '工资明细-' + period.year + '-' + month + '.xlsx';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(function () {
+                    URL.revokeObjectURL(objectUrl);
+                }, 1000);
+            });
+        })
+        .catch(error => {
+            console.error('Export salary error:', error);
+            showError('导出失败，请稍后重试');
+        });
 }
 
 // 显示内容区域
@@ -116,6 +341,11 @@ function showContent(sectionId) {
                 // 切换到其他页面时，设置标志位为 true，下次进入个人信息页面会刷新
                 shouldRefreshPersonalInfo = true; 
                 loadNotices();
+                break;
+            case 'salary-view':
+                shouldRefreshPersonalInfo = true;
+                initSalaryFilters();
+                loadMySalary();
                 break;
         }
     } catch (error) {
@@ -308,7 +538,6 @@ function showApplyLeaveModal() {
     const modal = new bootstrap.Modal(document.getElementById('leaveModal'));
     modal.show();
 }
-const employeeId = sessionStorage.getItem('employeeId');
 // 提交请假申请
 function submitLeave() {
     // 获取当前登录的员工ID
@@ -397,25 +626,38 @@ function cancelLeave(id) {
 }
 //图片文件上传表单
 function uploadPhoto() {
-    const file = document.getElementById('photoUpload').files[0];
+    const input = document.getElementById('photoUpload');
+    const file = input && input.files ? input.files[0] : null;
+    if (!file) {
+        showError('请先选择一个图片文件');
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        showError('图片大小不能超过 5MB');
+        return;
+    }
+
     const formData = new FormData();
     formData.append('photo', file);
 
     fetch(`/api/employees/${employeeId}/upload-photo`, {
         method: 'POST',
         body: formData
-    }).then(response => response.text())
-      .then(data => console.log(data));
-	   window.location.reload(true);
-}
-
-// 从后端加载照片
-fetch(`/api/employees/${employeeId}/photo`)
-    .then(response => response.blob())
-    .then(blob => {
-        const url = URL.createObjectURL(blob);
-        document.getElementById('employeePhoto').src = url;
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.code === 200) {
+            showSuccess('头像上传成功');
+            loadEmployeePhoto();
+        } else {
+            showError(result.msg || '上传失败');
+        }
+    })
+    .catch(error => {
+        console.error('Upload error:', error);
+        showError('上传失败：' + error.message);
     });
+}
 	  
 // document.getElementById('refreshBtn').addEventListener('click', function() {
 //   // 强制从服务器加载
@@ -427,4 +669,9 @@ window.showContent = showContent;
 window.logout = logout;
 window.showApplyLeaveModal = showApplyLeaveModal;
 window.submitLeave = submitLeave;
-window.cancelLeave = cancelLeave; 
+window.cancelLeave = cancelLeave;
+window.uploadPhoto = uploadPhoto;
+window.showChangePassword = showChangePassword;
+window.changePassword = changePassword;
+window.loadMySalary = loadMySalary;
+window.exportMySalary = exportMySalary; 

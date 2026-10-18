@@ -34,6 +34,14 @@ public class Employee implements Serializable {
     @Column(name = "phone", length = 20)
     private String phone;
 
+    /**
+     * 登录密码（BCrypt 散列）。
+     * WRITE_ONLY：允许接口接收该字段（创建/改密），但任何序列化响应都不会带出密文。
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    @Column(name = "password", length = 100)
+    private String password;
+
     /** 电子邮箱 */
     @Column(name = "email", length = 100)
     private String email;
@@ -41,6 +49,14 @@ public class Employee implements Serializable {
     /** 所属部门 */
     @Column(name = "department", nullable = false, length = 100)
     private String department;
+
+    /**
+     * 所属部门ID（departments.id 外键）。
+     * 部门名仍保留在 department 字段中作为展示快照，写入时由 EmployeeService 按名称解析并同步，
+     * 保证 department_id 始终指向真实存在的部门。
+     */
+    @Column(name = "department_id")
+    private Long departmentId;
 
     /** 职位 */
     @Column(name = "position", nullable = false, length = 100)
@@ -74,7 +90,8 @@ public class Employee implements Serializable {
     @Column(name = "is_del", nullable = false)
     private Boolean isDel;
 
-    /**图片存储位置*/
+    /**图片存储位置（服务端绝对路径，不对外暴露，前端走 /photo 接口取图）*/
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "photo_path")
     private String photoPath;
 

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 部门数据访问接口
@@ -19,6 +20,11 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
      */
     boolean existsByName(String name);
     
+    /**
+     * 根据名称精确查找（员工写入时用来把部门名解析成 department_id）
+     */
+    Optional<Department> findByName(String name);
+
     /**
      * 根据名称模糊查询
      */

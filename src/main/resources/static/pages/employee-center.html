@@ -97,6 +97,11 @@
 					    </a>
 					</li> -->
                     <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showContent('salary-view')">
+                            <i class="bi bi-cash-stack"></i> 我的工资
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="#" onclick="logout()">
                             <i class="bi bi-box-arrow-right"></i> 退出登录
                         </a>
@@ -162,6 +167,46 @@
                             <div id="noticeList">
                                 <!-- 公告列表将在这里动态加载 -->
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 我的工资 -->
+                <div id="salary-view" class="content-section" style="display: none;">
+                    <div class="card">
+                        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <h5 class="mb-0">我的工资</h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="number" id="salaryYear" class="form-control" min="2000" max="2100" style="width: 110px;">
+                                <select id="salaryMonth" class="form-select" style="width: 100px;"></select>
+                                <button class="btn btn-primary" onclick="loadMySalary()">查询</button>
+                                <button class="btn btn-outline-success" onclick="exportMySalary()">导出</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3 mb-3" id="salaryCards"></div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>年份</th>
+                                            <th>月份</th>
+                                            <th>当月工作日</th>
+                                            <th>月薪</th>
+                                            <th>当月请假天数</th>
+                                            <th>季度绩效评分</th>
+                                            <th>奖金</th>
+                                            <th>实际工资</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="salaryTableBody">
+                                        <!-- 工资明细动态加载 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="text-muted small mb-0">
+                                实际工资 = 月薪 − 月薪 ÷ 当月工作日 × 请假天数 + 奖金；奖金 = 月薪 × 季度绩效系数（评分 ≥90 20%、≥80 15%、≥70 10%、≥60 5%）。
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -248,6 +293,7 @@
     </div>
 
     <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/auth-guard.js"></script>
     <script src="/js/employee-center.js"></script>
 </body>
 </html> 

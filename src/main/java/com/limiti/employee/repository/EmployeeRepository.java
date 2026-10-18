@@ -1,5 +1,7 @@
 package com.limiti.employee.repository;
 import com.limiti.employee.entity.Employee;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -64,9 +66,28 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByName(String name);
 
     /**
+     * 根据姓名查找未删除的员工（登录用，重名时返回多条）
+     */
+    List<Employee> findByNameAndIsDel(String name, Boolean isDel);
+
+    /**
      * 不查询被删除的用户
      */
     List<Employee> findByIsDel(Boolean isDel);
 
     Optional<Employee> findByNameAndPhone(String name, String phone);
+
+    /**
+     * 分页查询未删除的员工，支持关键字（姓名/工号模糊）、部门名、在职状态过滤。
+     * 三个条件都传 null 时等价于全量分页。
+     */
+    @Query("SELECT e FROM Employee e WHERE e.isDel = false " +
+           "AND (:keyword IS NULL OR e.name LIKE CONCAT('%', :keyword, '%') " +
+           "                     OR e.employeeNumber LIKE CONCAT('%', :keyword, '%')) " +
+           "AND (:department IS NULL OR e.department = :department) " +
+           "AND (:status IS NULL OR e.status = :status)")
+    Page<Employee> searchPage(@Param("keyword") String keyword,
+                              @Param("department") String department,
+                              @Param("status") Boolean status,
+                              Pageable pageable);
 }

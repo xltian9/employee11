@@ -10,6 +10,7 @@ CREATE TABLE admins (
     name VARCHAR(100) NOT NULL COMMENT '姓名',
     phone VARCHAR(20) COMMENT '电话',
     email VARCHAR(100) COMMENT '邮箱',
+    status TINYINT(1) NOT NULL DEFAULT 1 COMMENT '账号状态：1-启用，0-禁用',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     UNIQUE KEY uk_username (username)
@@ -33,13 +34,21 @@ CREATE TABLE employees (
     name VARCHAR(100) NOT NULL COMMENT '姓名',
     phone VARCHAR(20) COMMENT '电话',
     email VARCHAR(100) COMMENT '邮箱',
-    department VARCHAR(100) NOT NULL COMMENT '部门',
+    password VARCHAR(100) COMMENT '登录密码（BCrypt），初始密码为手机号',
+    department VARCHAR(100) NOT NULL COMMENT '部门（展示用快照，写入时按名称同步）',
+    department_id BIGINT COMMENT '所属部门ID（外键 departments.id）',
     position VARCHAR(100) NOT NULL COMMENT '职位',
+    wage DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '月薪',
     entry_date DATETIME NOT NULL COMMENT '入职日期',
     status BOOLEAN NOT NULL DEFAULT TRUE COMMENT '在职状态',
+    is_del TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否删除：0-否，1-是',
+    photo_path VARCHAR(255) COMMENT '照片存储路径',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY uk_employee_number (employee_number)
+    UNIQUE KEY uk_employee_number (employee_number),
+    KEY idx_employees_department (department_id),
+    KEY idx_employees_is_del (is_del),
+    CONSTRAINT fk_employees_department FOREIGN KEY (department_id) REFERENCES departments (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='员工表';
 
 -- 考勤表
@@ -93,6 +102,8 @@ CREATE TABLE performances (
     employee_id BIGINT NOT NULL COMMENT '员工ID',
     year INT NOT NULL COMMENT '年份',
     quarter TINYINT NOT NULL COMMENT '季度：1-4',
+    month INT NULL COMMENT '历史字段：月度业绩，可为空',
+    work_score INT NULL COMMENT '历史字段：工作评分，可为空',
     score DECIMAL(3,1) NOT NULL COMMENT '评分',
     evaluation TEXT NOT NULL COMMENT '评价',
     evaluator_id BIGINT NOT NULL COMMENT '评价人ID',
@@ -105,8 +116,10 @@ CREATE TABLE performances (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='绩效表';
 
 -- 插入初始数据
-INSERT INTO admins (username, password, name) VALUES 
-('admin', 'admin', '系统管理员');
+-- 密码为 MD5 加密后的值：admin123 -> 0192023a7bbd73250516f069df18b500
+-- （AuthService 用 DigestUtils.md5DigestAsHex 逐位比对，这里必须存密文，不能存明文）
+INSERT INTO admins (username, password, name, phone, email, status) VALUES 
+('admin', '0192023a7bbd73250516f069df18b500', '系统管理员', '13800000000', 'admin@employee.local', 1);
 
 INSERT INTO departments (name, description, manager) VALUES 
 ('技术部', '负责技术研发', '张三'),
@@ -121,6 +134,12 @@ INSERT INTO employees (employee_number, name, department, position, phone, email
 ('EMP2400004', '赵六', '财务部', '财务总监', '13900000004', 'zhaoliu@123.com', '2024/12/1'),
 ('EMP2400005', '孙七', '技术部', '高级工程师', '13900000005', 'sunqi@123.com', '2024/12/1');
 
-ALTER TABLE employeess ADD COLUMN photo_path VARCHAR(255);
--- 或存储 Base64（适合小图片）
-ALTER TABLE employees ADD COLUMN photo_base64 TEXT;
+-- photo_path 已在上面的 employees 建表语句中声明，无需再 ALTER
+-- 若后续要存 Base64（适合小图片），再单独执行：
+-- ALTER TABLE employees ADD COLUMN photo_base64 TEXT;
+
+-- 回填员工的 department_id（按部门名关联；新增员工时由 EmployeeService 自动写入）
+UPDATE employees e
+    JOIN departments d ON e.department = d.name
+SET e.department_id = d.id
+WHERE e.department_id IS NULL;

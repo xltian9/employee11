@@ -1,8 +1,26 @@
-<div class="container">
+<div class="container-fluid">
     <h2 class="mb-4">月度工资报告</h2>
-<!--    <button class="btn btn-primary mb-3" onclick="showCreateModal()">新建业绩</button>-->
-    <table id="performanceTable" class="table table-striped table-bordered">
-        <thead>
+
+    <div class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+            <label class="form-label" for="reportYear">年份</label>
+            <input type="number" id="reportYear" class="form-control" min="2000" max="2100" style="width: 120px;">
+        </div>
+        <div class="col-auto">
+            <label class="form-label" for="reportMonth">月份</label>
+            <select id="reportMonth" class="form-select" style="width: 120px;"></select>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" onclick="loadPerformances()">查询</button>
+        </div>
+        <div class="col-auto ms-auto">
+            <button class="btn btn-outline-success me-2" onclick="exportReport()">导出 Excel</button>
+            <button class="btn btn-success" onclick="showCreateModal()">录入业绩</button>
+        </div>
+    </div>
+
+    <table id="performanceTable" class="table table-striped table-bordered align-middle">
+        <thead class="table-light">
             <tr>
                 <th>员工 ID</th>
                 <th>员工姓名</th>
@@ -13,59 +31,69 @@
                 <th>当月工作日期</th>
                 <th>月薪</th>
                 <th>当月请假天数</th>
+                <th>季度绩效评分</th>
+                <th>奖金</th>
                 <th>实际工资</th>
-<!--                <th>操作</th>-->
+                <th>操作</th>
             </tr>
         </thead>
         <tbody id="performanceBody">
-            <!-- 数据将通过 JavaScript 动态填充 -->
+            <!-- 数据通过 performance.js 动态填充 -->
         </tbody>
+        <tfoot id="performanceFoot" class="table-light"></tfoot>
     </table>
 
-    <!-- 新建/编辑模态框 -->
-    <div id="performanceModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modalTitle">新建业绩</h2>
-            <form id="performanceForm" class="row g-3">
+    <p class="text-muted small">
+        奖金规则：季度绩效评分 ≥90 发 20%，≥80 发 15%，≥70 发 10%，≥60 发 5%，其余或无业绩记录不发奖金；
+        实际工资 = 月薪 − 月薪 ÷ 当月工作日 × 当月请假天数 + 奖金。
+    </p>
+
+    <!-- 录入业绩浮层（不依赖 Bootstrap 的 modal JS） -->
+    <div id="performanceModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 1080; overflow: auto;">
+        <div style="max-width: 560px; margin: 60px auto; background: #fff; border-radius: 8px; padding: 24px;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0" id="modalTitle">录入业绩</h4>
+                <button type="button" class="btn-close" aria-label="关闭" onclick="closeModal()"></button>
+            </div>
+            <form id="performanceForm" class="row g-3" onsubmit="return false;">
                 <input type="hidden" id="performanceId">
-                <div class="col-md-6">
-                    <label for="employeeId" class="form-label">员工 ID:</label>
-                    <input type="number" id="employeeId" class="form-control" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="year" class="form-label">年份:</label>
-                    <input type="number" id="year" class="form-control" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="quarter" class="form-label">季度:</label>
-                    <input type="number" id="quarter" class="form-control" min="1" max="4" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="score" class="form-label">评分:</label>
-                    <input type="number" id="score" class="form-control" step="0.1" required>
-                </div>
                 <div class="col-md-12">
-                    <label for="evaluation" class="form-label">评价:</label>
-                    <textarea id="evaluation" class="form-control" required></textarea>
+                    <label for="perfEmployeeId" class="form-label">员工</label>
+                    <select id="perfEmployeeId" class="form-select" required></select>
                 </div>
-                <div class="col-md-12">
-                    <label for="status" class="form-label">状态:</label>
-                    <select id="status" class="form-select">
-                        <option value="0">待确认</option>
-                        <option value="1">已确认</option>
+                <div class="col-md-4">
+                    <label for="perfYear" class="form-label">年份</label>
+                    <input type="number" id="perfYear" class="form-control" min="2000" max="2100" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="perfQuarter" class="form-label">季度</label>
+                    <select id="perfQuarter" class="form-select">
+                        <option value="1">第一季度</option>
+                        <option value="2">第二季度</option>
+                        <option value="3">第三季度</option>
+                        <option value="4">第四季度</option>
                     </select>
                 </div>
+                <div class="col-md-4">
+                    <label for="perfScore" class="form-label">评分（0-100）</label>
+                    <input type="number" id="perfScore" class="form-control" step="0.1" min="0" max="100" required>
+                </div>
                 <div class="col-md-12">
+                    <label for="perfEvaluation" class="form-label">评价</label>
+                    <textarea id="perfEvaluation" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="col-md-12">
+                    <label for="perfStatus" class="form-label">状态</label>
+                    <select id="perfStatus" class="form-select">
+                        <option value="1">已确认</option>
+                        <option value="0">待确认</option>
+                    </select>
+                </div>
+                <div class="col-md-12 d-flex gap-2">
                     <button type="button" class="btn btn-primary" onclick="savePerformance()">保存</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-
-    <!-- 引入 Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/performance.js"></script>
-</body>
-</html>

@@ -39,3 +39,6 @@ logs/
 ### Application Properties ###
 application-dev.properties
 application-prod.properties
+
+### 导出样例（运行时生成） ###
+导出示例/

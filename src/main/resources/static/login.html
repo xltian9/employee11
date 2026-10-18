@@ -68,9 +68,12 @@
                 </div>
                 <div class="form-floating">
                     <input type="password" class="form-control" id="password" placeholder="密码" required>
-                    <label for="password" id="passwordLabel">手机号</label>
+                    <label for="password" id="passwordLabel">密码</label>
                 </div>
                 <button type="submit" class="btn btn-primary btn-login">登录</button>
+                <div class="form-text text-center mt-3" style="font-size: 12px; color: #888;">
+                    员工首次登录的初始密码为本人手机号，登录后请尽快修改。
+                </div>
             </form>
         </div>
     </div>
@@ -108,7 +111,7 @@
             input.addEventListener('change', function() {
                 if (this.value === 'employee') {
                     usernameLabel.textContent = '姓名';
-                    passwordLabel.textContent = '手机号';
+                    passwordLabel.textContent = '密码';
                 } else {
                     usernameLabel.textContent = '管理员账号';
                     passwordLabel.textContent = '密码';
@@ -124,9 +127,13 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
-            // 如果是员工登录，验证手机号格式
-            if (loginType === 'employee' && !/^1[3-9]\d{9}$/.test(password)) {
-                showError('请输入正确的手机号');
+            // 员工与管理员都走真实密码校验，这里只做非空校验
+            if (!password) {
+                showError('请输入密码');
+                return;
+            }
+            if (!username) {
+                showError('请输入姓名或账号');
                 return;
             }
 

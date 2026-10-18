@@ -25,7 +25,8 @@ public class Admin {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
-    /** 登录密码（加密存储） */
+    /** 登录密码（加密存储）。WRITE_ONLY：永不随响应返回密文 */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     @Column(name = "password", nullable = false, length = 100)
     private String password;
 

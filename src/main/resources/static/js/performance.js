@@ -1,400 +1,429 @@
 /**
- * 加载业绩列表
+ * 月度工资报告（含季度业绩奖金）
+ *
+ * 数据来源：GET /api/report/list?year=&month=
+ * 录入业绩：POST /api/performances
  */
-// function loadPerformances() {
-//     console.log('正在加载业绩数据...');
-//     const department = jQuery('#departmentFilter').val();
-//     const month = jQuery('#monthFilter').val();
-//     const name = jQuery('#searchName').val().trim();
-//     // API 接口地址
-//     const apiUrl = '/api/performances'; 
+(function () {
+    'use strict';
 
-//     let url = '/api/performances';
-//     if (department || month || name) {
-//         url += '?';
-//         if (department) url += `department=${encodeURIComponent(department)}&`;
-//         if (month) url += `month=${month}&`;
-//         if (name) url += `name=${encodeURIComponent(name)}`;
-//     }
+    /* ---------------- 工具函数 ---------------- */
 
-//     jQuery.ajax({
-//         url: url,
-//         method: 'GET',
-//         success: function(response) {
-//             console.log('业绩数据响应:', response);
-//             if (response.code === 200) {
-//                 displayPerformances(response.data || []);
-//             } else {
-//                 showError('加载业绩列表失败：' + response.message);
-//             }
-//         },
-//         error: function(xhr, status, error) {
-//             console.error('加载业绩数据出错:', error);
-//             console.error('响应内容:', xhr.responseText);
-//             showError('加载业绩列表失败：' + error);
-//         }
-//     });
-// }
-
-function displayPerformances(data) {
-    // 将业绩数据显示在页面上的逻辑
-    const performanceTableBody = document.getElementById('performanceTableBody');
-    performanceTableBody.innerHTML = '';
-    data.forEach(performance => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${performance.id}</td>
-            <td>${performance.employeeName}</td>
-            <td>${performance.amount}</td>
-            <td>${performance.date}</td>
-        `;
-        performanceTableBody.appendChild(row);
-    });
-}
-
-/**
- * 显示业绩列表
- */
-function displayPerformances(performances) {
-    console.log('Displaying performances:', performances);
-    let html = '';
-    if (performances && performances.length > 0) {
-        performances.forEach(function(perf) {
-            html += `
-                <tr>
-                    <td>${perf.employee ? perf.employee.name : '-'}</td>
-                    <td>${perf.employee ? perf.employee.department : '-'}</td>
-                    <td>${perf.month}</td>
-                    <td>${perf.workScore}</td>
-                    <td>${perf.attitudeScore}</td>
-                    <td>${perf.attendanceScore}</td>
-                    <td>${perf.totalScore}</td>
-                    <td>${perf.evaluator ? perf.evaluator.name : '-'}</td>
-                    <td>
-                        <button class="btn btn-sm btn-info me-2" onclick="viewPerformance(${perf.id})">查看</button>
-                        <button class="btn btn-sm btn-primary" onclick="editPerformance(${perf.id})">编辑</button>
-                    </td>
-                </tr>
-            `;
-        });
+    function escapeHtml(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
-    $('#performanceTableBody').html(html || '<tr><td colspan="9" class="text-center">暂无业绩记录</td></tr>');
-}
 
-/**
- * 显示添加业绩评估模态框
- */
-function showAddPerformanceModal() {
-    $('#performanceId').val('');
-    $('#performanceForm')[0].reset();
-    $('#performanceModalTitle').text('添加业绩评估');
-    loadEmployeeOptions();
-    $('#performanceModal').modal('show');
-}
-
-/**
- * 加载员工选项
- */
-function loadEmployeeOptions() {
-    $.ajax({
-        url: '/api/employees',
-        method: 'GET',
-        success: function(response) {
-            if (response.code === 200) {
-                let html = '<option value="">选择员工</option>';
-                response.data.forEach(function(emp) {
-                    html += `<option value="${emp.id}">${emp.name} - ${emp.department}</option>`;
-                });
-                $('#employeeSelect').html(html);
-            }
+    function money(value) {
+        if (value === null || value === undefined || value === '') {
+            return '-';
         }
-    });
-}
-
-/**
- * 保存业绩评估
- */
-function savePerformance() {
-    const id = $('#performanceId').val();
-    const employeeId = $('#employeeSelect').val();
-    // 检查 employeeId 是否有效
-    if (!employeeId) {
-        showError('请选择员工');
-        return;
+        var number = Number(value);
+        if (isNaN(number)) {
+            return '-';
+        }
+        return number.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
-    const data = {
-        employeeId: parseInt(employeeId),
-        month: $('#performanceMonth').val(),
-        workScore: parseInt($('#workScore').val()),
-        attitudeScore: parseInt($('#attitudeScore').val()),
-        attendanceScore: parseInt($('#attendanceScore').val()),
-        comment: $('#performanceComment').val().trim()
-    };
 
-    $.ajax({
-        url: '/api/performances' + (id ? `/${id}` : ''),
-        method: id ? 'PUT' : 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(data),
-        success: function(response) {
-            if (response.code === 200) {
-                $('#performanceModal').modal('hide');
-                loadPerformances();
-                showSuccess(id ? '更新成功' : '创建成功');
-            } else {
-                showError(response.message || '保存失败');
-            }
-        },
-        error: function(xhr, status, error) {
-            showError('保存失败：' + error);
-        }
-    });
-}
-
-/**
- * 查看业绩详情
- */
-function viewPerformance(id) {
-    $.ajax({
-        url: `/api/performances/${id}`,
-        method: 'GET',
-        success: function(response) {
-            if (response.code === 200) {
-                const perf = response.data;
-                $('#performanceDetail').html(`
-                    <div class="mb-3">
-                        <h6>基本信息</h6>
-                        <p>员工：${perf.employee.name}</p>
-                        <p>部门：${perf.employee.department}</p>
-                        <p>月份：${perf.month}</p>
-                        <p>评估人：${perf.evaluator.name}</p>
-                    </div>
-                    <div class="mb-3">
-                        <h6>评分详情</h6>
-                        <p>工作表现：${perf.workScore}</p>
-                        <p>工作态度：${perf.attitudeScore}</p>
-                        <p>出勤情况：${perf.attendanceScore}</p>
-                        <p>总评分：${perf.totalScore}</p>
-                    </div>
-                    <div>
-                        <h6>评价内容</h6>
-                        <p>${perf.comment}</p>
-                    </div>
-                `);
-                $('#viewModal').modal('show');
-            } else {
-                showError(response.message || '获取详情失败');
-            }
-        },
-        error: function(xhr, status, error) {
-            showError('获取详情失败：' + error);
-        }
-    });
-}
-
-function getPerformanceById(id) {
-    // 检查 id 是否有效
-    if (!id) {
-        showError('未提供有效的业绩记录 ID');
-        return;
+    function currentYear() {
+        return new Date().getFullYear();
     }
-    $.ajax({
-        url: `/api/performances/${id}`,
-        method: 'GET',
-        success: function(response) {
-            if (response.code === 200) {
-                const performance = response.data;
-                // 这里可以根据需求处理获取到的业绩记录，比如显示在模态框中
-                console.log('获取到的业绩记录:', performance);
-            } else {
-                showError('获取业绩记录失败：' + response.message);
-            }
-        },
-        error: function(xhr, status, error) {
-            showError('获取业绩记录失败：' + error);
-        }
-    });
-}
 
-
-function loadPerformances() {
-    console.log('正在加载业绩数据...');
-    $.ajax({
-        url: '/api/report/list',
-        method: 'GET',
-        success: function(response) {
-            if (response.code === 200) {
-                const performances = response.data;
-                const tableBody = $('#performanceBody');
-                tableBody.empty();
-
-                performances.forEach(function(performance) {
-                    const row = `
-                        <tr>
-                            <td>${performance.employeeNumber}</td>
-                            <td>${performance.name}</td>
-                            <td>${performance.department}</td>
-                            <td>${performance.position}</td>
-                            <td>${performance.yearNum}</td>
-                            <td>${performance.monthNum}</td>
-                            <td>${performance.workDay}</td>
-                            <td>${performance.wage}</td>
-                            <td>${performance.leavesDay}</td>
-                            <td>${performance.nowWage}</td>
-                        </tr>
-                    `;
-                    tableBody.append(row);
-                });
-            } else {
-                showError('加载业绩记录失败：' + response.message);
-            }
-        },
-        error: function(xhr, status, error) {
-            showError('加载业绩记录失败：' + error);
-        }
-    });
-}
-
-function showCreateModal() {
-    $('#modalTitle').text('新建业绩');
-    $('#performanceId').val('');
-    $('#employeeId').val('');
-    $('#year').val('');
-    $('#quarter').val('');
-    $('#score').val('');
-    $('#evaluation').val('');
-    $('#status').val('0');
-    $('#month').val('');
-    $('#performanceModal').show();
-}
-
-function showEditModal(id) {
-    $.ajax({
-        url: `/api/performances/${id}`,
-        method: 'GET',
-        success: function(response) {
-            if (response.code === 200) {
-                const performance = response.data;
-                $('#modalTitle').text('编辑业绩');
-                $('#performanceId').val(performance.id);
-                $('#employeeId').val(performance.employee.id);
-                $('#year').val(performance.year);
-                $('#quarter').val(performance.quarter);
-                $('#score').val(performance.score);
-                $('#evaluation').val(performance.evaluation);
-                $('#status').val(performance.status);
-                $('#performanceModal').show();
-            } else {
-                showError('获取业绩记录失败：' + response.message);
-            }
-        },
-        error: function(xhr, status, error) {
-            showError('获取业绩记录失败：' + error);
-        }
-    });
-}
-
-function savePerformance() {
-    const id = $('#performanceId').val();
-    const employeeId = parseInt($('#employeeId').val());
-    // 检查 employeeId 是否有效
-    if (isNaN(employeeId)) {
-        showError('请选择有效的员工');
-        return;
+    function currentMonth() {
+        return new Date().getMonth() + 1;
     }
-    const data = {
-        employeeId: parseInt($('#employeeId').val()),
-        year: parseInt($('#year').val()),
-        quarter: parseInt($('#quarter').val()),
-        score: parseFloat($('#score').val()),
-        evaluation: $('#evaluation').val(),
-        status: parseInt($('#status').val())
-    };
-    console.log('Saving performance:', data);
-    const url = id ? `/api/performances/${id}` : '/api/performances';
-    const method = id ? 'PUT' : 'POST';
 
-    $.ajax({
-        url: url,
-        method: method,
-        contentType: 'application/json',
-        data: JSON.stringify(data),
-        beforeSend: function(xhr) {
-            console.log('Request Headers:', xhr.getAllResponseHeaders());
-            console.log('Request Body:', JSON.stringify(data));
-        },
-        success: function(response) {
-            if (response.code === 200) {
-                $('#performanceModal').hide();
-                loadPerformances();
-                showSuccess(id ? '更新成功' : '创建成功');
-            } else {
-                showError(response.message || '保存失败');
-            }
-        },
-        error: function(xhr, status, error) {
-            showError('保存失败：' + error);
+    function currentQuarter() {
+        return Math.floor((currentMonth() - 1) / 3) + 1;
+    }
+
+    function alertError(message) {
+        window.alert(message);
+    }
+
+    /* ---------------- 筛选区初始化 ---------------- */
+
+    function initReportFilters() {
+        var monthSelect = document.getElementById('reportMonth');
+        var yearInput = document.getElementById('reportYear');
+        if (!monthSelect || !yearInput) {
+            return;
         }
-    });
-}
+        if (monthSelect.options.length === 0) {
+            for (var month = 1; month <= 12; month++) {
+                var option = document.createElement('option');
+                option.value = String(month);
+                option.textContent = month + ' 月';
+                monthSelect.appendChild(option);
+            }
+        }
+        monthSelect.value = String(currentMonth());
+        yearInput.value = String(currentYear());
+    }
 
-function deletePerformance(id) {
-    if (confirm('确定要删除这条业绩记录吗？')) {
-        $.ajax({
-            url: `/api/performances/${id}`,
-            method: 'DELETE',
-            success: function(response) {
-                if (response.code === 200) {
-                    loadPerformances();
-                    showSuccess('删除成功');
-                } else {
-                    showError('删除失败：' + response.message);
+    /* ---------------- 报告加载与渲染 ---------------- */
+
+    function loadPerformances() {
+        // 页面内容每次切换都会重新注入，这里按 DOM 是否已初始化来判断，避免重置用户已选的年月
+        var monthSelect = document.getElementById('reportMonth');
+        if (monthSelect && monthSelect.options.length === 0) {
+            initReportFilters();
+        }
+        var yearInput = document.getElementById('reportYear');
+        var tbody = document.getElementById('performanceBody');
+        if (!yearInput || !monthSelect || !tbody) {
+            return;
+        }
+        var year = parseInt(yearInput.value, 10);
+        var month = parseInt(monthSelect.value, 10);
+        if (isNaN(year) || isNaN(month)) {
+            alertError('请选择有效的年份和月份');
+            return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">加载中...</td></tr>';
+        var foot = document.getElementById('performanceFoot');
+        if (foot) {
+            foot.innerHTML = '';
+        }
+
+        fetch('/api/report/list?year=' + encodeURIComponent(year) + '&month=' + encodeURIComponent(month), {
+            credentials: 'same-origin'
+        })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (result) {
+                if (!result || result.code !== 200) {
+                    var message = result && result.msg ? result.msg : '加载工资报告失败';
+                    tbody.innerHTML = '<tr><td colspan="13" class="text-center text-danger">'
+                        + escapeHtml(message) + '</td></tr>';
+                    return;
                 }
-            },
-            error: function(xhr, status, error) {
-                showError('删除失败：' + error);
-            }
-        });
+                renderReport(result.data || []);
+            })
+            .catch(function (error) {
+                console.error('加载工资报告出错:', error);
+                tbody.innerHTML = '<tr><td colspan="13" class="text-center text-danger">加载工资报告失败，请稍后重试</td></tr>';
+            });
     }
-}
 
-function closeModal() {
-    $('#performanceModal').hide();
-}
-
-function showSuccess(message) {
-    alert(message);
-}
-
-function showError(message) {
-    alert(message);
-}
-
-// 页面加载时加载业绩记录
-$(document).ready(function() {
-    loadPerformances();
-});
-
-// 页面加载完成后初始化
-$(document).ready(function() {
-    loadPerformances();
-    // 加载部门选项
-    let deptUrl = '/api/departments';
-    // 添加时间戳参数
-    deptUrl += `?_=${new Date().getTime()}`;
-    $.ajax({
-        url: deptUrl,
-        method: 'GET',
-        success: function(response) {
-            if (response.code === 200) {
-                let html = '<option value="">选择部门</option>';
-                response.data.forEach(function(dept) {
-                    html += `<option value="${dept.name}">${dept.name}</option>`;
-                });
-                $('#departmentFilter').html(html);
-            }
+    function renderReport(rows) {
+        var tbody = document.getElementById('performanceBody');
+        var foot = document.getElementById('performanceFoot');
+        if (!tbody) {
+            return;
         }
-    });
-    // 设置月份默认值为当前月
-    $('#monthFilter').val(new Date().toISOString().slice(0,7));
-}); 
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">当前月份没有在职员工</td></tr>';
+            if (foot) {
+                foot.innerHTML = '';
+            }
+            return;
+        }
+
+        var totalWage = 0;
+        var totalBonus = 0;
+        var totalNowWage = 0;
+        var totalLeaves = 0;
+        var html = '';
+
+        rows.forEach(function (row) {
+            var wage = Number(row.wage || 0);
+            var bonus = Number(row.bonus || 0);
+            var nowWage = Number(row.nowWage || 0);
+            var leaves = Number(row.leavesDay || 0);
+            totalWage += wage;
+            totalBonus += bonus;
+            totalNowWage += nowWage;
+            totalLeaves += leaves;
+
+            html += '<tr>'
+                + '<td>' + escapeHtml(row.employeeNumber || row.employeeId) + '</td>'
+                + '<td>' + escapeHtml(row.name) + '</td>'
+                + '<td>' + escapeHtml(row.department) + '</td>'
+                + '<td>' + escapeHtml(row.position) + '</td>'
+                + '<td>' + escapeHtml(row.yearNum) + '</td>'
+                + '<td>' + escapeHtml(row.monthNum) + '</td>'
+                + '<td>' + escapeHtml(row.workDay) + '</td>'
+                + '<td>' + money(row.wage) + '</td>'
+                + '<td>' + escapeHtml(row.leavesDay) + '</td>'
+                + '<td>' + (row.performanceScore === null || row.performanceScore === undefined
+                    ? '<span class="text-muted">未录入</span>'
+                    : escapeHtml(row.performanceScore)) + '</td>'
+                + '<td class="text-success">' + money(row.bonus) + '</td>'
+                + '<td class="fw-bold">' + money(row.nowWage) + '</td>'
+                + '<td><button type="button" class="btn btn-sm btn-outline-primary" onclick="openPerformanceModal('
+                + escapeHtml(row.employeeId) + ', '
+                + (row.performanceId === null || row.performanceId === undefined ? 'null' : escapeHtml(row.performanceId))
+                + ')">' + (row.performanceId ? '修改业绩' : '录入业绩') + '</button></td>'
+                + '</tr>';
+        });
+
+        tbody.innerHTML = html;
+
+        if (foot) {
+            foot.innerHTML = '<tr>'
+                + '<td colspan="7" class="text-end fw-bold">合计</td>'
+                + '<td class="fw-bold">' + money(totalWage) + '</td>'
+                + '<td class="fw-bold">' + totalLeaves + '</td>'
+                + '<td></td>'
+                + '<td class="fw-bold text-success">' + money(totalBonus) + '</td>'
+                + '<td class="fw-bold">' + money(totalNowWage) + '</td>'
+                + '</tr>';
+        }
+    }
+
+    /* ---------------- 录入业绩 ---------------- */
+
+    function loadEmployeeOptions(selectedId) {
+        var select = document.getElementById('perfEmployeeId');
+        if (!select) {
+            return;
+        }
+        select.innerHTML = '<option value="">加载中...</option>';
+        fetch('/api/employees', { credentials: 'same-origin' })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (result) {
+                if (!result || result.code !== 200 || !result.data) {
+                    select.innerHTML = '<option value="">员工列表加载失败</option>';
+                    return;
+                }
+                var options = '<option value="">请选择员工</option>';
+                result.data.forEach(function (employee) {
+                    var label = (employee.employeeNumber ? employee.employeeNumber + ' ' : '')
+                        + (employee.name || '') + (employee.department ? '（' + employee.department + '）' : '');
+                    options += '<option value="' + escapeHtml(employee.id) + '">' + escapeHtml(label) + '</option>';
+                });
+                select.innerHTML = options;
+                if (selectedId) {
+                    select.value = String(selectedId);
+                }
+            })
+            .catch(function (error) {
+                console.error('加载员工列表出错:', error);
+                select.innerHTML = '<option value="">员工列表加载失败</option>';
+            });
+    }
+
+    function resetModal() {
+        document.getElementById('performanceId').value = '';
+        document.getElementById('perfScore').value = '';
+        document.getElementById('perfEvaluation').value = '';
+        document.getElementById('perfStatus').value = '1';
+        document.getElementById('modalTitle').textContent = '录入业绩';
+        var employeeSelect = document.getElementById('perfEmployeeId');
+        if (employeeSelect) {
+            employeeSelect.disabled = false;
+        }
+    }
+
+    /**
+     * 打开业绩录入/修改浮层
+     * @param {number|null} employeeId    员工ID，为空表示由用户在弹窗里选择
+     * @param {number|null} performanceId 已有业绩记录ID，为空表示新增
+     */
+    function openPerformanceModal(employeeId, performanceId) {
+        var modal = document.getElementById('performanceModal');
+        if (!modal) {
+            return;
+        }
+        resetModal();
+
+        var yearInput = document.getElementById('reportYear');
+        var monthSelect = document.getElementById('reportMonth');
+        var reportYear = yearInput ? parseInt(yearInput.value, 10) : currentYear();
+        var reportMonth = monthSelect ? parseInt(monthSelect.value, 10) : currentMonth();
+
+        loadEmployeeOptions(employeeId);
+        document.getElementById('perfYear').value = String(isNaN(reportYear) ? currentYear() : reportYear);
+        document.getElementById('perfQuarter').value = String(
+            isNaN(reportMonth) ? currentQuarter() : (Math.floor((reportMonth - 1) / 3) + 1));
+
+        if (performanceId) {
+            document.getElementById('performanceId').value = String(performanceId);
+            document.getElementById('modalTitle').textContent = '修改业绩';
+            var employeeSelect = document.getElementById('perfEmployeeId');
+            if (employeeSelect) {
+                employeeSelect.disabled = true;
+            }
+            fetch('/api/performances/' + encodeURIComponent(performanceId), { credentials: 'same-origin' })
+                .then(function (response) {
+                    return response.json();
+                })
+                .then(function (result) {
+                    if (!result || result.code !== 200 || !result.data) {
+                        alertError(result && result.msg ? result.msg : '读取业绩记录失败');
+                        return;
+                    }
+                    var record = result.data;
+                    document.getElementById('perfYear').value = String(record.year);
+                    document.getElementById('perfQuarter').value = String(record.quarter);
+                    document.getElementById('perfScore').value = String(record.score);
+                    document.getElementById('perfEvaluation').value = record.evaluation || '';
+                    document.getElementById('perfStatus').value = String(record.status === null || record.status === undefined ? 1 : record.status);
+                })
+                .catch(function (error) {
+                    console.error('读取业绩记录出错:', error);
+                    alertError('读取业绩记录失败，请稍后重试');
+                });
+        }
+
+        modal.style.display = 'block';
+    }
+
+    function showCreateModal() {
+        openPerformanceModal(null, null);
+    }
+
+    function closeModal() {
+        var modal = document.getElementById('performanceModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function savePerformance() {
+        var performanceId = document.getElementById('performanceId').value;
+        var employeeId = document.getElementById('perfEmployeeId').value;
+        var year = parseInt(document.getElementById('perfYear').value, 10);
+        var quarter = parseInt(document.getElementById('perfQuarter').value, 10);
+        var scoreText = document.getElementById('perfScore').value;
+        var score = parseFloat(scoreText);
+        var evaluation = document.getElementById('perfEvaluation').value;
+        var status = parseInt(document.getElementById('perfStatus').value, 10);
+
+        if (!performanceId && !employeeId) {
+            alertError('请选择员工');
+            return;
+        }
+        if (isNaN(year) || year < 2000 || year > 2100) {
+            alertError('请填写有效的年份');
+            return;
+        }
+        if (isNaN(quarter) || quarter < 1 || quarter > 4) {
+            alertError('请选择季度');
+            return;
+        }
+        if (isNaN(score) || score < 0 || score > 100) {
+            alertError('评分必须在 0 到 100 之间');
+            return;
+        }
+        if (!evaluation || !evaluation.trim()) {
+            alertError('请填写评价');
+            return;
+        }
+
+        var payload = {
+            year: year,
+            quarter: quarter,
+            score: score,
+            evaluation: evaluation.trim(),
+            status: isNaN(status) ? 1 : status
+        };
+        if (!performanceId) {
+            payload.employeeId = parseInt(employeeId, 10);
+        }
+
+        var url = performanceId
+            ? '/api/performances/' + encodeURIComponent(performanceId)
+            : '/api/performances';
+        var method = performanceId ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (result) {
+                if (!result || result.code !== 200) {
+                    alertError(result && result.msg ? result.msg : '保存业绩失败');
+                    return;
+                }
+                closeModal();
+                loadPerformances();
+            })
+            .catch(function (error) {
+                console.error('保存业绩出错:', error);
+                alertError('保存业绩失败，请稍后重试');
+            });
+    }
+
+    /* ---------------- 导出 Excel ---------------- */
+
+    function downloadFile(url, fileName) {
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                var type = response.headers.get('Content-Type') || '';
+                if (type.indexOf('spreadsheetml') === -1) {
+                    return response.json().then(function (result) {
+                        alertError(result && result.msg ? result.msg : '导出失败');
+                        throw new Error('EXPORT_FAILED');
+                    });
+                }
+                return response.blob().then(function (blob) {
+                    var link = document.createElement('a');
+                    var objectUrl = URL.createObjectURL(blob);
+                    link.href = objectUrl;
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(function () {
+                        URL.revokeObjectURL(objectUrl);
+                    }, 1000);
+                });
+            })
+            .catch(function (error) {
+                if (error && error.message === 'EXPORT_FAILED') {
+                    return;
+                }
+                console.error('导出失败:', error);
+                alertError('导出失败，请稍后重试');
+            });
+    }
+
+    function exportReport() {
+        var yearInput = document.getElementById('reportYear');
+        var monthSelect = document.getElementById('reportMonth');
+        if (!yearInput || !monthSelect) {
+            return;
+        }
+        var year = parseInt(yearInput.value, 10);
+        var month = parseInt(monthSelect.value, 10);
+        if (isNaN(year) || year < 2000 || year > 2100) {
+            alertError('请填写有效年份（2000-2100）');
+            return;
+        }
+        if (isNaN(month)) {
+            month = currentMonth();
+        }
+        var monthText = month < 10 ? '0' + month : String(month);
+        downloadFile('/api/report/export?year=' + year + '&month=' + month,
+            '工资报告-' + year + '-' + monthText + '.xlsx');
+    }
+
+    /* ---------------- 对外暴露 ---------------- */
+
+    window.exportReport = exportReport;
+    window.loadPerformances = loadPerformances;
+    window.showCreateModal = showCreateModal;
+    window.openPerformanceModal = openPerformanceModal;
+    window.closeModal = closeModal;
+    window.savePerformance = savePerformance;
+})();

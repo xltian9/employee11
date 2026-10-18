@@ -4,8 +4,7 @@ import com.limiti.employee.common.Result;
 import com.limiti.employee.entity.Admin;
 import com.limiti.employee.entity.Employee;
 import com.limiti.employee.entity.Leave;
-import com.limiti.employee.repository.AdminRepository;
-import com.limiti.employee.repository.EmployeeRepository;
+import com.limiti.employee.security.SessionUser;
 import com.limiti.employee.service.EmployeeService;
 import com.limiti.employee.service.LeaveService;
 import io.swagger.annotations.Api;
@@ -14,7 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpSession;
+import javax.servlet.http.HttpServletRequest;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -31,20 +31,17 @@ public class LeaveController {
     private LeaveService leaveService;
 
     @Autowired
-    private AdminRepository adminRepository;
-
-    @Autowired
-    private EmployeeRepository employeeRepository;
-
-    @Autowired
     private EmployeeService employeeService;
 
     /**
-     * 获取所有请假记录
+     * 获取所有请假记录（仅管理员）
      */
     @GetMapping
     @ApiOperation("获取所有请假记录")
-    public Result<List<Leave>> getAllLeaves() {
+    public Result<List<Leave>> getAllLeaves(HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "无权查看全部请假记录");
+        }
         try {
             List<Leave> leaves = leaveService.findAll();
             return Result.success(leaves);
@@ -55,11 +52,14 @@ public class LeaveController {
     }
 
     /**
-     * 获取待审批的请假记录
+     * 获取待审批的请假记录（仅管理员）
      */
     @GetMapping("/pending")
     @ApiOperation("获取待审批的请假记录")
-    public Result<List<Leave>> getPendingLeaves() {
+    public Result<List<Leave>> getPendingLeaves(HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "无权查看待审批记录");
+        }
         try {
             List<Leave> leaves = leaveService.getPendingLeaves();
             return Result.success(leaves);
@@ -70,46 +70,23 @@ public class LeaveController {
     }
 
     /**
-     * 提交请假申请
+     * 提交请假申请（仅员工本人；管理员需用员工账号提交）
      */
     @PostMapping
     @ApiOperation("提交请假申请")
-    public Result<Leave> submitLeave(@RequestBody Leave leave, HttpSession session) {
+    public Result<Leave> submitLeave(@RequestBody Leave leave, HttpServletRequest request) {
+        Employee employee = SessionUser.employee(request);
+        if (employee == null) {
+            return Result.error(403, "管理员账号不能提交请假申请，请使用员工账号登录");
+        }
         try {
-            // 获取当前登录用户
-            Employee employee = (Employee) session.getAttribute("employee");
-            Admin admin = (Admin) session.getAttribute("admin");
-            
-            if (employee == null && admin == null) {
-                return Result.error("未登录");
-            }
-
-            // 如果是管理员登录，使用管理员信息
-            if (admin != null) {
-                // 根据管理员信息创建或获取对应的员工记录
-                Employee adminEmployee = employeeService.findByName(admin.getUsername())
-                    .orElseGet(() -> {
-                        Employee newEmployee = new Employee();
-                        newEmployee.setName(admin.getUsername());
-                        newEmployee.setStatus(true);
-                        newEmployee.setDepartment("管理部");
-                        newEmployee.setPosition("管理员");
-                        newEmployee.setPhone("00000000000");
-                        newEmployee.setEntryDate(new Date());
-                        newEmployee.setCreateTime(new Date());
-                        newEmployee.setUpdateTime(new Date());
-                        return employeeService.save(newEmployee);
-                    });
-                leave.setEmployee(adminEmployee);
-            } else {
-                // 如果是员工登录，使用员工信息
-                leave.setEmployee(employee);
-            }
-
-            // 设置请假状态为待审核
+            // 忽略请求体里的 employeeId，一律以 session 中的登录者为准
+            leave.setId(null);
+            leave.setEmployee(employee);
+            leave.setApprover(null);
             leave.setStatus(0);
             leave.setCreateTime(new Date());
-            
+
             Leave saved = leaveService.save(leave);
             return Result.success(saved);
         } catch (Exception e) {
@@ -119,19 +96,20 @@ public class LeaveController {
     }
 
     /**
-     * 审批请假
+     * 审批请假（仅管理员）
      */
     @PostMapping("/{id}/approve")
     @ApiOperation("审批请假")
     public Result<Leave> approveLeave(
             @PathVariable Long id,
             @RequestParam Integer status,
-            @RequestParam String comment) {
+            @RequestParam String comment,
+            HttpServletRequest request) {
+        Admin admin = SessionUser.admin(request);
+        if (admin == null) {
+            return Result.error(403, "只有管理员才能审批请假");
+        }
         try {
-            // TODO: 后续应该从Session中获取
-            Admin admin = adminRepository.findById(1L)
-                .orElseThrow(() -> new IllegalStateException("管理员不存在"));
-            
             Leave approved = leaveService.approveLeave(id, status, comment, admin);
             return Result.success(approved);
         } catch (Exception e) {
@@ -141,13 +119,20 @@ public class LeaveController {
     }
 
     /**
-     * 根据ID获取请假详情
+     * 根据ID获取请假详情（管理员，或请假人本人）
      */
     @GetMapping("/{id}")
     @ApiOperation("根据ID获取请假详情")
-    public Result<Leave> getLeave(@PathVariable Long id) {
+    public Result<Leave> getLeave(@PathVariable Long id, HttpServletRequest request) {
         try {
             Leave leave = leaveService.findById(id);
+            if (leave == null) {
+                return Result.error(404, "请假记录不存在");
+            }
+            Long ownerId = leave.getEmployee() == null ? null : leave.getEmployee().getId();
+            if (!SessionUser.canAccessEmployee(request, ownerId)) {
+                return Result.error(403, "无权查看他人的请假记录");
+            }
             return Result.success(leave);
         } catch (Exception e) {
             log.error("获取请假详情失败", e);
@@ -156,11 +141,15 @@ public class LeaveController {
     }
 
     /**
-     * 搜索请假记录
+     * 搜索请假记录（仅管理员）
      */
     @GetMapping("/search")
     @ApiOperation("搜索请假记录")
-    public Result<List<Leave>> searchLeaves(@RequestParam(required = false) Integer status) {
+    public Result<List<Leave>> searchLeaves(@RequestParam(required = false) Integer status,
+                                            HttpServletRequest request) {
+        if (!SessionUser.isAdmin(request)) {
+            return Result.error(403, "无权搜索请假记录");
+        }
         try {
             List<Leave> leaves;
             if (status != null) {
@@ -176,16 +165,17 @@ public class LeaveController {
     }
 
     /**
-     * 获取指定员工的请假记录
+     * 获取指定员工的请假记录（管理员，或员工本人）
      */
     @GetMapping("/employee/{employeeId}")
     @ApiOperation("获取指定员工的请假记录")
-    public Result<List<Leave>> getEmployeeLeaves(@PathVariable Long employeeId) {
+    public Result<List<Leave>> getEmployeeLeaves(@PathVariable Long employeeId,
+                                                 HttpServletRequest request) {
+        if (!SessionUser.canAccessEmployee(request, employeeId)) {
+            return Result.error(403, "无权查看其他员工的请假记录");
+        }
         try {
-            // 验证员工是否存在
-            Employee employee = employeeService.findById(employeeId);
-            
-            // 获取该员工的请假记录
+            employeeService.findById(employeeId);
             List<Leave> leaves = leaveService.getEmployeeLeaves(employeeId);
             return Result.success(leaves);
         } catch (Exception e) {
@@ -199,31 +189,22 @@ public class LeaveController {
      */
     @GetMapping("/my")
     @ApiOperation("获取我的请假记录")
-    public Result<List<Leave>> getMyLeaves(HttpSession session) {
+    public Result<List<Leave>> getMyLeaves(HttpServletRequest request) {
         try {
-            // 获取当前登录用户
-            Employee employee = (Employee) session.getAttribute("employee");
-            Admin admin = (Admin) session.getAttribute("admin");
-            
-            if (employee == null && admin == null) {
-                return Result.error("未登录");
+            Employee employee = SessionUser.employee(request);
+            if (employee == null) {
+                Admin admin = SessionUser.admin(request);
+                if (admin == null) {
+                    return Result.error(401, "未登录");
+                }
+                // 管理员没有请假记录，返回空列表而不是报错
+                return Result.success(Collections.emptyList());
             }
-
-            Long employeeId;
-            if (admin != null) {
-                // 如果是管理员，查找对应的员工记录
-                Employee adminEmployee = employeeService.findByName(admin.getUsername())
-                    .orElseThrow(() -> new RuntimeException("未找到管理员对应的员工记录"));
-                employeeId = adminEmployee.getId();
-            } else {
-                employeeId = employee.getId();
-            }
-
-            List<Leave> leaves = leaveService.getEmployeeLeaves(employeeId);
+            List<Leave> leaves = leaveService.getEmployeeLeaves(employee.getId());
             return Result.success(leaves);
         } catch (Exception e) {
             log.error("获取我的请假记录失败", e);
             return Result.error("获取我的请假记录失败：" + e.getMessage());
         }
     }
-} 
+}

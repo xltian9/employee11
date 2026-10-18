@@ -47,7 +47,7 @@
                         <a class="nav-link" href="#" onclick="loadContent('leave')">请假管理</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="loadContent('performance')">业绩管理</a>
+                        <a class="nav-link" href="#" onclick="loadContent('performance')">业绩工资</a>
                     </li>
                 </ul>
                 <!-- 占位元素，后续用 JavaScript 填充管理员名称 -->
@@ -201,6 +201,13 @@
     </script>
 
     <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/auth-guard.js"></script>
+    <script>
+        // 管理端页面仅管理员可进入，未登录会自动跳回登录页
+        if (window.AuthGuard) {
+            AuthGuard.require('admin');
+        }
+    </script>
     <script src="/js/main.js"></script>
     <script src="/js/department.js"></script>
     <script src="/js/employee.js"></script>
